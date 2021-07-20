@@ -239,7 +239,7 @@ class GP5D(GP2D):
             self.Y = Y / med - 1
         return None
 
-    def model_predict(self, predX=None):
+    def model_predict(self, predX=None, include_like = True):
         """ Predict new values of X and Y using optimized GP Emulator.
         """
         print("[STATUS] Predicting X and Y with trained emulator.")
@@ -247,7 +247,7 @@ class GP5D(GP2D):
         if predX is None:
             predX = self.X
 
-        pred_arr, pred_var = self.model.predict(predX)
+        pred_arr, pred_var = self.model.predict(predX, include_likelihood = include_like)
 
         if not np.isclose(self.median, 0):
             pred_var = (pred_var + 1) * (self.median ** 2)
@@ -304,7 +304,7 @@ class GP5D(GP2D):
                 np.save(f"data/pcaTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy",
                         inverted_trained_data)
 
-    def old_save_trained_data(self, typ=None):
+    def save_trained_data_helper(self, typ=None):
         lstX = []
         lstY = []
         lstPCA = []
@@ -374,9 +374,9 @@ class GP5D(GP2D):
         return None
 
     def save_trained_data(self):
-        self.old_save_trained_data(typ=None)
-        self.old_save_trained_data(typ="lower")
-        self.old_save_trained_data(typ="upper")
+        self.save_trained_data_helper(typ=None)
+        self.save_trained_data_helper(typ="lower")
+        self.save_trained_data_helper(typ="upper")
         return None
 
     def LOOCV_PCA(self, verbose=4):
