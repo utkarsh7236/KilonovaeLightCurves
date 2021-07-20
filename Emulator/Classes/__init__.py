@@ -19,16 +19,3 @@ plt.rcParams.update({
     "font.serif": ["Palatino"],
 })
 
-
-def utkarshGrid():
-    plt.minorticks_on()
-    plt.grid(color='grey',
-             which='minor',
-             linestyle=":",
-             linewidth='0.1',
-             )
-    plt.grid(color='black',
-             which='major',
-             linestyle=":",
-             linewidth='0.1',
-             )
