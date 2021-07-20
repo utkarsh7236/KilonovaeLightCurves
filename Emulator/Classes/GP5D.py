@@ -11,6 +11,7 @@ import GPy
 from operator import itemgetter
 import sncosmo
 import seaborn as sns
+from tqdm import tqdm
 
 
 class GP5D(GP2D):
@@ -568,6 +569,31 @@ class GP5D(GP2D):
         plt.ylabel("Log Flux (Magnitude)")
         utkarshGrid()
         return None
+
+    def plot_emulator_errors(self):
+        t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
+        diff = np.zeros(t.shape)
+        for index, row, in tqdm(self.reference.iterrows(), total=196):
+            for viewing_angle in self.iobs_range:
+                mejdyn = row.mejdyn
+                mejwind = row.mejwind
+                phi = row.phi
+                iobs = viewing_angle
+
+                untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+                trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+
+                for i in range(len(t)):
+                    diff += abs(trained[:, i] - untrained[:, i])
+
+        plt.figure(dpi=300, figsize=(6, 3))
+        plt.plot(t, diff, color="goldenrod")
+        utkarshGrid()
+        plt.title("Errors between Bulla model and the emulator")
+        # plt.ylabel("Absolute Error (Cumulative Magnitude)")
+        plt.ylabel("Absolute Error (Cumulative Log Flux)")
+        plt.xlabel("Time (days)")
+        plt.show()
 
     def setXY_cross_validation(self):
         pass
