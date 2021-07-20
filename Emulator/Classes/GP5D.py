@@ -568,3 +568,6 @@ class GP5D(GP2D):
         plt.ylabel("Log Flux (Magnitude)")
         utkarshGrid()
         return None
+
+    def setXY_cross_validation(self):
+        pass
