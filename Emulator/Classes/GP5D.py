@@ -10,6 +10,7 @@ import pandas as pd
 import GPy
 from operator import itemgetter
 
+
 class GP5D(GP2D):
     """The Gaussian Process for KNe Light Curves using GPy. This class handles the five dimensional case.
     """
@@ -94,8 +95,9 @@ class GP5D(GP2D):
                     save_matrix[save_matrix == 0] = epsilon
 
                 save_matrix = np.log10(save_matrix)
-                np.save(f"pca/mejdyn{mejdyn_range[0]}_mejwind{mejwind_range[0]}_phi{phi_range[0]}_iobs{viewing_angle}",
-                        save_matrix)
+                np.save(
+                    f"data/pca/mejdyn{mejdyn_range[0]}_mejwind{mejwind_range[0]}_phi{phi_range[0]}_iobs{viewing_angle}",
+                    save_matrix)
             return None
 
         none_returned = Parallel(n_jobs=-2, verbose=verbose) \
@@ -129,7 +131,7 @@ class GP5D(GP2D):
                         continue
 
                 pca_matrix = np.load(
-                    f"pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
                 scaler = StandardScaler()
                 scaler.fit(pca_matrix)
                 scaled_data = scaler.transform(pca_matrix)
@@ -140,8 +142,9 @@ class GP5D(GP2D):
                 pca2.fit(pca.components_.T)
                 X2 = pca2.transform(pca.components_.T)
                 training = pca2.components_.flatten()
-                np.save(f"pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy",
-                        training)
+                np.save(
+                    f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy",
+                    training)
                 skip_counter = -1
         return None
 
@@ -153,7 +156,7 @@ class GP5D(GP2D):
         for index, row, in self.reference.iterrows():
             for viewing_angle in self.iobs_range:
                 pca_matrix = np.load(
-                    f"pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
                 lstX.append((row.mejdyn, row.mejwind, row.phi, viewing_angle))
                 lstY.append(pca_matrix.flatten())
 
@@ -181,8 +184,9 @@ class GP5D(GP2D):
                     if skip_counter < skip_factor:
                         continue
 
-                np.save(f"pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy",
-                        pca.components_[:, counter])
+                np.save(
+                    f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy",
+                    pca.components_[:, counter])
                 skip_counter = -1
                 counter += 1
 
@@ -200,7 +204,7 @@ class GP5D(GP2D):
 
                 try:
                     y = np.load(
-                        f"pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                        f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
 
                 except:
                     continue
@@ -255,10 +259,10 @@ class GP5D(GP2D):
         for i in range(self.X.shape[0]):
             trained_pcaComponents = self.predY[i].reshape(self.training_shape)
             np.save(
-                f"pcaComponentsTrained/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi{int(self.unnormedX[i][2])}_iobs{int(self.unnormedX[i][3])}.npy",
+                f"data/pcaComponentsTrained/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi{int(self.unnormedX[i][2])}_iobs{int(self.unnormedX[i][3])}.npy",
                 trained_pcaComponents)
             np.save(
-                f"pcaComponentsTrainedError/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi{int(self.unnormedX[i][2])}_iobs{int(self.unnormedX[i][3])}.npy",
+                f"data/pcaComponentsTrainedError/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi{int(self.unnormedX[i][2])}_iobs{int(self.unnormedX[i][3])}.npy",
                 self.pred_sigma[i])
 
     def old_save_trained_data(self):
@@ -270,11 +274,11 @@ class GP5D(GP2D):
         for index, row, in self.reference.iterrows():
             for viewing_angle in self.iobs_range:
                 pca_matrix = np.load(
-                    f"pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
 
                 try:
                     trained_pcaComponents = np.load(
-                        f"pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                        f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
                 except:
                     trained_pcaComponents = None
                     continue
@@ -295,7 +299,7 @@ class GP5D(GP2D):
                 inverted_trained_data = scaler.inverse_transform(trained3)
 
                 assert inverted_trained_data.shape == pca_matrix.shape
-                np.save(f"pcaTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy",
+                np.save(f"data/pcaTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy",
                         inverted_trained_data)
 
     def old_save_trained_data(self, typ=None):
@@ -308,13 +312,13 @@ class GP5D(GP2D):
         for index, row, in self.reference.iterrows():
             for viewing_angle in self.iobs_range:
                 pca_matrix = np.load(
-                    f"pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
 
                 try:
                     trainedComponents = np.load(
-                        f"pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                        f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
                     trainedComponentsError = np.load(
-                        f"pcaComponentsTrainedError/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                        f"data/pcaComponentsTrainedError/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
 
                     if typ == "upper":
                         trainedComponents = trainedComponents + trainedComponentsError * sigma
@@ -356,13 +360,13 @@ class GP5D(GP2D):
 
         for val in self.unnormedX:
             if typ == "upper":
-                np.save(f"pcaTrainedUpper/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
+                np.save(f"data/pcaTrainedUpper/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
                         trained_pca_matrix[:, :, counter])
             if typ == "lower":
-                np.save(f"pcaTrainedLower/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
+                np.save(f"data/pcaTrainedLower/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
                         trained_pca_matrix[:, :, counter])
             if typ == None:
-                np.save(f"pcaTrained/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
+                np.save(f"data/pcaTrained/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
                         trained_pca_matrix[:, :, counter])
             counter += 1
         return None
@@ -406,7 +410,8 @@ class GP5D(GP2D):
 
             trained_pcaComponents = predY.reshape(self.training_shape)
             np.save(
-                f"pcaComponentsTrained/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi{int(self.unnormedX[i][2])}_iobs{int(self.unnormedX[i][3])}.npy",
+                f"data/pcaComponentsTrained/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi"
+                f"{int(self.unnormedX[i][2])}_iobs{int(self.unnormedX[i][3])}.npy",
                 trained_pcaComponents)
 
             return looList, lengthscale
@@ -428,9 +433,9 @@ class GP5D(GP2D):
             for viewing_angle in self.iobs_range:
                 try:
                     untrained = np.load(
-                        f"pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                        f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
                     trained = np.load(
-                        f"pcaTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                        f"data/pcaTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
                 except:
                     continue
                 currLoo = (trained - untrained) / untrained
