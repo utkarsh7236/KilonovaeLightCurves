@@ -39,6 +39,8 @@ class GP5D(GP2D):
         self.num_pca_components = (4, 4)
         self.iobs_range = np.arange(0, 11, 1)  # THIS HAS BEEN FILLED IN MANUALLY
         self.isLog = True
+        self.validationX = None
+        self.cross_validation = None
         return None
 
     def set_wv_range(self, wv_range):
@@ -158,6 +160,11 @@ class GP5D(GP2D):
 
         for index, row, in self.reference.iterrows():
             for viewing_angle in self.iobs_range:
+                if self.cross_validation is not None:
+                    if (row.mejdyn == self.cross_validation[0]) and (row.mejwind == self.cross_validation[1]) and \
+                            (row.phi == self.cross_validation[2]) and (viewing_angle == self.cross_validation[3]):
+                        self.validationX = [row.mejdyn, row.mejwind, row.phi, viewing_angle]
+                        continue
                 pca_matrix = np.load(
                     f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
                 lstX.append((row.mejdyn, row.mejwind, row.phi, viewing_angle))
@@ -182,6 +189,10 @@ class GP5D(GP2D):
 
         for index, row, in self.reference.iterrows():
             for viewing_angle in self.iobs_range:
+                if (row.mejdyn == self.cross_validation[0]) and (row.mejwind == self.cross_validation[1]) and \
+                        (row.phi == self.cross_validation[2]) and (viewing_angle == self.cross_validation[3]):
+                    continue
+
                 if skip_factor is not None:
                     skip_counter += 1
                     if skip_counter < skip_factor:
@@ -192,7 +203,6 @@ class GP5D(GP2D):
                     pca.components_[:, counter])
                 skip_counter = -1
                 counter += 1
-
         return None
 
     def setXY(self):
@@ -240,7 +250,7 @@ class GP5D(GP2D):
             self.Y = Y / med - 1
         return None
 
-    def model_predict(self, predX=None, include_like = True):
+    def model_predict(self, predX=None, include_like=True):
         """ Predict new values of X and Y using optimized GP Emulator.
         """
         print("[STATUS] Predicting X and Y with trained emulator.")
@@ -248,7 +258,7 @@ class GP5D(GP2D):
         if predX is None:
             predX = self.X
 
-        pred_arr, pred_var = self.model.predict(predX, include_likelihood = include_like)
+        pred_arr, pred_var = self.model.predict(predX, include_likelihood=include_like)
 
         if not np.isclose(self.median, 0):
             pred_var = (pred_var + 1) * (self.median ** 2)
@@ -595,5 +605,164 @@ class GP5D(GP2D):
         plt.xlabel("Time (days)")
         plt.show()
 
-    def setXY_cross_validation(self):
-        pass
+    def setXY_cross_validation(self, mejdyn, mejwind, phi, iobs):
+        print("[STATUS] Setting X, Y components for 5D Model.")
+        x = []
+        yList = []
+
+        for index, row, in self.reference.iterrows():
+            for viewing_angle in self.iobs_range:
+                if (row.mejdyn == mejdyn) and (row.mejwind == mejwind) and (row.phi == phi) and (viewing_angle == iobs):
+                    self.validationX = [row.mejdyn, row.mejwind, row.phi, viewing_angle]
+                    continue
+                else:
+                    pass
+
+                try:
+                    y = np.load(
+                        f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+
+                except:
+                    continue
+
+                x.append([row.mejdyn, row.mejwind, row.phi, viewing_angle])
+                tempY = y.flatten()
+                assert np.allclose(y, tempY.reshape(y.shape))
+                yList.append(tempY)
+
+        self.training_shape = y.shape
+        Y = np.array(yList, dtype=float)
+        X = np.array(x, dtype=float)
+
+        XNormed = X.copy()
+        x.append(self.validationX)
+        XValidation = np.array(x, dtype=float)
+        XNormedValidation = XValidation.copy()
+        YNormed = Y.copy()
+
+        for i in range(X.shape[1]):
+            XNormed[:, i] = (X[:, i] - min(X[:, i])) / (max(X[:, i]) - min(X[:, i]))
+            XNormedValidation[:, i] = (XValidation[:, i] - min(XValidation[:, i])) /\
+                                      (max(XValidation[:, i]) - min(XValidation[:, i]))
+
+        self.validationXNormed = XNormedValidation[-1]
+        self.unnormedX = X
+        self.X = XNormed
+
+        self.unnormedY = Y
+        med = np.median(Y)
+        self.median = med
+
+        if np.isclose(self.median, 0):
+            self.Y = Y
+        else:
+            self.Y = Y / med - 1
+
+        assert len(self.Y) == 196 * 11 - 1
+        return None
+
+    def model_predict_cross_validation(self, include_like=True):
+        """ Predict new values of X and Y using optimized GP Emulator.
+        """
+        print("[STATUS] Predicting X and Y with trained emulator.")
+        predX = self.validationXNormed.reshape(1,len(self.validationXNormed))
+
+        pred_arr, pred_var = self.model.predict(predX, include_likelihood=include_like)
+
+        if not np.isclose(self.median, 0):
+            pred_var = (pred_var + 1) * (self.median ** 2)
+            pred_arr = (pred_arr + 1) * self.median
+
+        self.predY = pred_arr
+
+        pred_sigma = np.sqrt(pred_var)
+        self.pred_sigma = pred_sigma.squeeze()
+
+        trained_pcaComponents = self.predY.reshape(self.training_shape)
+        np.save(f"data/pcaComponentsTrained/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
+                trained_pcaComponents)
+        np.save(f"data/pcaComponentsTrainedError/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
+                self.pred_sigma)
+        return None
+
+    # def save_trained_data_cross_validation(self, mejdyn, mejwind, phi, iobs, typ=None):
+    #     lstX = []
+    #     lstY = []
+    #     lstPCA = []
+    #     n_comp = self.n_comp
+    #     sigma = 1
+    #
+    #     for index, row, in self.reference.iterrows():
+    #         for viewing_angle in self.iobs_range:
+    #             if (row.mejdyn == mejdyn) and (row.mejwind == mejwind) and (row.phi == phi) and (viewing_angle == iobs):
+    #                 self.validationX = [row.mejdyn, row.mejwind, row.phi, viewing_angle]
+    #                 validation_matrix = np.load(
+    #                     f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+    #                 validation_components = np.load(
+    #                     f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}")
+    #                 validation_components_errpr = np.load(
+    #                     f"data/pcaComponentsTrainedError/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+    #                 continue
+    #             else:
+    #                 pass
+    #             pca_matrix = np.load(
+    #                 f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+    #
+    #             try:
+    #                 trainedComponents = np.load(
+    #                     f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+    #                 trainedComponentsError = np.load(
+    #                     f"data/pcaComponentsTrainedError/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+    #
+    #                 if typ == "upper":
+    #                     trainedComponents = trainedComponents + trainedComponentsError * sigma
+    #                 if typ == "lower":
+    #                     trainedComponents = trainedComponents - trainedComponentsError * sigma
+    #                 if typ == None:
+    #                     trainedComponents = trainedComponents
+    #
+    #             except:
+    #                 trainedComponents = None
+    #                 continue
+    #
+    #             lstPCA.append(trainedComponents)
+    #             lstX.append((row.mejdyn, row.mejwind, row.phi, viewing_angle))
+    #             lstY.append(pca_matrix.flatten())
+    #
+    #     aX = np.array(lstX)
+    #     aY = np.array(lstY)
+    #     aPCA = np.array(lstPCA)
+    #     aPCA = aPCA.T
+    #     aY = aY.T
+    #     scaler = StandardScaler()
+    #     scaler.fit(aY)
+    #     scaled_data = scaler.transform(aY)
+    #     pca = PCA(n_components=n_comp, svd_solver='randomized')
+    #     pca.fit(scaled_data)
+    #     X = pca.transform(scaled_data)
+    #     pca.components_ = aPCA
+    #     trained1 = pca.inverse_transform(pca.transform(scaled_data))
+    #     trained2 = scaler.inverse_transform(trained1)
+    #
+    #     if self.skip_factor is not None:
+    #         trained_pca_matrix = trained2.reshape(self.Ntime[2], self.num_wv,
+    #                                               int(np.floor(2155 / (self.skip_factor + 1))))
+    #     else:
+    #         trained_pca_matrix = trained2.reshape(self.Ntime[2], self.num_wv, 2155)
+    #
+    #     counter = 0
+    #
+    #     print(trained_pca_matrix.shape)
+    #
+    #     for val in self.unnormedX:
+    #         if typ == "upper":
+    #             np.save(f"data/pcaTrainedUpper/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
+    #                     trained_pca_matrix[:, :, counter])
+    #         if typ == "lower":
+    #             np.save(f"data/pcaTrainedLower/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
+    #                     trained_pca_matrix[:, :, counter])
+    #         if typ == None:
+    #             np.save(f"data/pcaTrained/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
+    #                     trained_pca_matrix[:, :, counter])
+    #         counter += 1
+    #     return None
