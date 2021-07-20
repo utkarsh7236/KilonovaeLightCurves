@@ -9,6 +9,7 @@ from sklearn.decomposition import PCA
 import pandas as pd
 import GPy
 from operator import itemgetter
+import sncosmo
 
 
 class GP5D(GP2D):
@@ -488,5 +489,5 @@ class GP5D(GP2D):
 
         ax.set_ylim(bottom=-0.1)
 
-    def plot_training_data_simple(self):
+    def plot_magnitude(self, mejdyn, mejwind, phi, iobs):
         pass
