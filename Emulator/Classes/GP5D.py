@@ -10,6 +10,7 @@ import pandas as pd
 import GPy
 from operator import itemgetter
 import sncosmo
+import seaborn as sns
 
 
 class GP5D(GP2D):
@@ -489,5 +490,81 @@ class GP5D(GP2D):
 
         ax.set_ylim(bottom=-0.1)
 
-    def plot_magnitude(self, mejdyn, mejwind, phi, iobs):
-        pass
+    def plot_filters(self, mejdyn, mejwind, phi, iobs, colors="coolwarm_r"):
+        t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
+        untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        filters = ["sdss::u", "sdss::g", "sdss::r", "sdss::i", "sdss::z",
+                   "swope2::y", "swope2::J", "swope2::H"]
+
+        colors = sns.color_palette(colors, len(filters))[::-1]
+
+        plt.figure(dpi=300, figsize=(6, 3))
+        for i in range(len(filters)):
+            source = sncosmo.TimeSeriesSource(t, self.wv_range * 10, 10 ** trained)
+            source2 = sncosmo.TimeSeriesSource(t, self.wv_range * 10, 10 ** untrained)
+            m = source.bandmag(filters[i], "ab", t)
+            m2 = source2.bandmag(filters[i], "ab", t)
+            plt.plot(t, m, label=f"{filters[i][-1]}", color=colors[i])
+            plt.plot(t, m2, linestyle="dotted", alpha=0.3, color=colors[i])
+
+        plt.legend()
+        utkarshGrid()
+        plt.gca().invert_yaxis()
+        plt.xlabel("Time (days)")
+        plt.ylabel("Flux (Magnitude)")
+        plt.title(f"Magnitude plot as specified filters")
+        return None
+
+    def get_flux(self, mejdyn, mejwind, phi, iobs, time_desired, wv_desired):
+        t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
+        wv_index = (np.abs(self.wv_range - wv_desired)).argmin()  # Plot arbitary wavelength.
+        time_index = (np.abs(t - time_desired)).argmin()  # Plot arbitary wavelength.
+        trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+
+        print(f"=== Flux Estimation === \nmejdyn: {mejdyn}\nmejwind: {mejwind}\
+        \nphi: {phi}\nviewing_angle: {iobs}\nwavelength: {self.wv_range[wv_index]}nm\
+        \ntime: {round(t[time_index], 2)} days\n\nLOG FLUX: {round(trained[time_index, wv_index], 5)}")
+        return None
+
+    def overplot_time(self, mejdyn, mejwind, phi, iobs, wv_desired):
+        t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
+        wv_index = (np.abs(self.wv_range - wv_desired)).argmin()  # Plot arbitary wavelength.
+        trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        trainedUpper = np.load(f"data/pcaTrainedUpper/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        trainedLower = np.load(f"data/pcaTrainedLower/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+
+        plt.figure(dpi=300, figsize=(6, 3))
+        plt.title(f"Wavelength = {self.wv_range[wv_index]}nm")
+        plt.plot(t, untrained[:, wv_index], label="Training Data", color="purple")
+        plt.plot(t, trainedUpper[:, wv_index], alpha=0.3, color="lightblue", label=r"1$\sigma$")
+        plt.plot(t, trainedLower[:, wv_index], alpha=0.3, color="lightblue")
+        plt.plot(t, trained[:, wv_index], label="Trained Emulator + PCA", linestyle="dashed", color="dodgerblue")
+        plt.legend()
+        plt.xlabel("Time (s)")
+        plt.ylabel("Log Flux (Magnitude)")
+        utkarshGrid()
+        return None
+
+    def overplot_wavelength(self, mejdyn, mejwind, phi, iobs, time_desired):
+        t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
+        time_index = (np.abs(t - time_desired)).argmin()  # Plot arbitary wavelength.
+        trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        trainedUpper = np.load(f"data/pcaTrainedUpper/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        trainedLower = np.load(f"data/pcaTrainedLower/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+
+        plt.figure(dpi=300, figsize=(6, 3))
+        plt.title(f"Time = {round(t[time_index], 3)} Days")
+        plt.plot(self.wv_range, untrained[time_index, :], label="Training Data", color="purple")
+        plt.plot(self.wv_range, trained[time_index, :], label="Trained Emulator + PCA",
+                 linestyle="dashed", color="dodgerblue")
+        plt.plot(self.wv_range, trainedUpper[time_index, :], alpha=0.3, color="lightblue",
+                 label=r"1$\sigma$ Error (UNFINISHED)")
+        plt.plot(self.wv_range, trainedLower[time_index, :], alpha=0.3, color="lightblue")
+        plt.legend()
+        plt.xlabel("Wavelength (nm)")
+        plt.ylabel("Log Flux (Magnitude)")
+        utkarshGrid()
+        return None
