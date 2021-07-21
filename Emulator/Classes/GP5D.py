@@ -180,7 +180,6 @@ class GP5D(GP2D):
         pca = PCA(n_components=n_comp, svd_solver='randomized')
         pca.fit(scaled_data)
         X = pca.transform(scaled_data)
-        print(X.shape)
         counter = 0
 
         if skip_factor is not None:
@@ -620,8 +619,12 @@ class GP5D(GP2D):
                 phi = row.phi
                 iobs = viewing_angle
 
-                untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
-                trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+                try:
+                    untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+                    trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+
+                except:
+                    continue
 
                 for i in range(len(t)):
                     diff += abs(trained[:, i] - untrained[:, i])
@@ -716,5 +719,3 @@ class GP5D(GP2D):
             f"data/pcaComponentsTrainedError/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
             self.pred_sigma)
         return None
-
-
