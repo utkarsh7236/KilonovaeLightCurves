@@ -180,6 +180,7 @@ class GP5D(GP2D):
         pca = PCA(n_components=n_comp, svd_solver='randomized')
         pca.fit(scaled_data)
         X = pca.transform(scaled_data)
+        print(X.shape)
         counter = 0
 
         if skip_factor is not None:
