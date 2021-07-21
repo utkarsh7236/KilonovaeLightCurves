@@ -371,17 +371,29 @@ class GP5D(GP2D):
 
         counter = 0
 
-        for val in self.unnormedX:
+        if self.cross_validation is None:
+            for val in self.unnormedX:
+                if typ == "upper":
+                    np.save(f"data/pcaTrainedUpper/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
+                            trained_pca_matrix[:, :, counter])
+                if typ == "lower":
+                    np.save(f"data/pcaTrainedLower/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
+                            trained_pca_matrix[:, :, counter])
+                if typ == None:
+                    np.save(f"data/pcaTrained/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
+                            trained_pca_matrix[:, :, counter])
+                counter += 1
+
+        if self.cross_validation is not None:
             if typ == "upper":
-                np.save(f"data/pcaTrainedUpper/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
-                        trained_pca_matrix[:, :, counter])
+                np.save(f"data/pcaTrainedUpper/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
+                        trained_pca_matrix[:, :, -1])
             if typ == "lower":
-                np.save(f"data/pcaTrainedLower/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
-                        trained_pca_matrix[:, :, counter])
-            if typ == None:
-                np.save(f"data/pcaTrained/mejdyn{val[0]}_mejwind{val[1]}_phi{int(val[2])}_iobs{int(val[3])}.npy",
-                        trained_pca_matrix[:, :, counter])
-            counter += 1
+                np.save(f"data/pcaTrainedLower/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
+                        trained_pca_matrix[:, :, -1])
+            if typ is None:
+                np.save(f"data/pcaTrained/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
+                        trained_pca_matrix[:, :, -1])
         return None
 
     def save_trained_data(self):
@@ -549,8 +561,8 @@ class GP5D(GP2D):
         plt.figure(dpi=300, figsize=(6, 3))
         plt.title(f"Wavelength = {self.wv_range[wv_index]}nm")
         plt.plot(t, untrained[:, wv_index], label="Training Data", color="purple")
-        plt.plot(t, trainedUpper[:, wv_index], alpha=0.3, color="lightblue", label=r"1$\sigma$")
-        plt.plot(t, trainedLower[:, wv_index], alpha=0.3, color="lightblue")
+        # plt.plot(t, trainedUpper[:, wv_index], alpha=0.3, color="lightblue", label=r"1$\sigma$")
+        # plt.plot(t, trainedLower[:, wv_index], alpha=0.3, color="lightblue")
         plt.plot(t, trained[:, wv_index], label="Trained Emulator + PCA", linestyle="dashed", color="dodgerblue")
         plt.legend()
         plt.xlabel("Time (s)")
@@ -571,9 +583,9 @@ class GP5D(GP2D):
         plt.plot(self.wv_range, untrained[time_index, :], label="Training Data", color="purple")
         plt.plot(self.wv_range, trained[time_index, :], label="Trained Emulator + PCA",
                  linestyle="dashed", color="dodgerblue")
-        plt.plot(self.wv_range, trainedUpper[time_index, :], alpha=0.3, color="lightblue",
-                 label=r"1$\sigma$ Error (UNFINISHED)")
-        plt.plot(self.wv_range, trainedLower[time_index, :], alpha=0.3, color="lightblue")
+        # plt.plot(self.wv_range, trainedUpper[time_index, :], alpha=0.3, color="lightblue",
+        #          label=r"1$\sigma$ Error (UNFINISHED)")
+        # plt.plot(self.wv_range, trainedLower[time_index, :], alpha=0.3, color="lightblue")
         plt.legend()
         plt.xlabel("Wavelength (nm)")
         plt.ylabel("Log Flux (Magnitude)")
