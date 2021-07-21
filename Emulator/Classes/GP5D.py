@@ -13,6 +13,7 @@ import sncosmo
 import seaborn as sns
 from tqdm import tqdm
 import copy
+import pickle
 
 
 class GP5D(GP2D):
@@ -179,7 +180,10 @@ class GP5D(GP2D):
         scaled_data = scaler.transform(aY)
         pca = PCA(n_components=n_comp, svd_solver='randomized')
         pca.fit(scaled_data)
-        X = pca.transform(scaled_data)
+        reduced_data = pca.transform(scaled_data)
+        np.save(f"data/transformComponents/pca_reduced_data.npy", reduced_data)
+
+        pickle.dump(scaler, open("data/transformComponents/scaler", 'wb'))
         counter = 0
 
         if skip_factor is not None:
@@ -326,9 +330,6 @@ class GP5D(GP2D):
         s = 0
         for index, row, in self.reference.iterrows():
             for viewing_angle in self.iobs_range:
-                pca_matrix = np.load(
-                    f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
-
                 try:
                     trainedComponents = np.load(
                         f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
@@ -356,29 +357,27 @@ class GP5D(GP2D):
                 s += 1
 
                 lstPCA.append(trainedComponents)
-                lstX.append((row.mejdyn, row.mejwind, row.phi, viewing_angle))
-                lstY.append(pca_matrix.flatten())
 
-        aX = np.array(lstX)
-        aY = np.array(lstY)
         aPCA = np.array(lstPCA)
         aPCA = aPCA.T
-        aY = aY.T
-        scaler = StandardScaler()
-        scaler.fit(aY)
-        scaled_data = scaler.transform(aY)
-        pca = PCA(n_components=n_comp, svd_solver='randomized')
-        pca.fit(scaled_data)
-        X = pca.transform(scaled_data)
-        pca.components_ = aPCA
-        trained1 = pca.inverse_transform(pca.transform(scaled_data))
-        trained2 = scaler.inverse_transform(trained1)
+        reduced_data = np.load("data/transformComponents/pca_reduced_data.npy")
+        scaler = pickle.load(open("data/transformComponents/scaler", 'rb'))
+        trained1 = np.dot(reduced_data, aPCA)
+        if self.cross_validation is None:
+            trained2 = scaler.inverse_transform(trained1)
+        else:
+            trained2 = scaler.inverse_transform(trained1[:, :-1])  # Need to pass the same size dataset.
+
+        if self.cross_validation is None:
+            N = 2156
+        else:
+            N = 2155
 
         if self.skip_factor is not None:
             trained_pca_matrix = trained2.reshape(self.Ntime[2], self.num_wv,
-                                                  int(np.floor(2156 / (self.skip_factor + 1))))
+                                                  int(np.floor(N / (self.skip_factor + 1))))
         else:
-            trained_pca_matrix = trained2.reshape(self.Ntime[2], self.num_wv, 2156)
+            trained_pca_matrix = trained2.reshape(self.Ntime[2], self.num_wv, N)
 
         counter = 0
 
