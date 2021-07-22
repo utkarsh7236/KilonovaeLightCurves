@@ -422,12 +422,12 @@ class GP5D(GP2D):
     def parallel_LOOCV(self, i):
         tempX = self.X.copy()  # Normalized
         tempY = self.Y.copy()  # Normalized
-        tempKernel = self.kernel.copy()
+        tempKernel = copy.deepcopy(self.kernel)
         test_pointX = np.array([tempX[i]])
         test_pointY = np.array(tempY[i])
         tempX = np.delete(tempX, i, 0)
         tempY = np.delete(tempY, i, 0)
-        self.set_kernel(tempKernel.copy())
+        self.set_kernel(copy.deepcopy(tempKernel))
         self.model = GPy.models.GPRegression(tempX, tempY, self.kernel)
         #             self.model['.*lengthscale'].constrain_bounded(0,5)
         self.model.optimize(messages=False)
