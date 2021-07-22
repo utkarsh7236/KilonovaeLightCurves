@@ -422,12 +422,12 @@ class GP5D(GP2D):
     def parallel_LOOCV(self, i):
         tempX = self.X.copy()  # Normalized
         tempY = self.Y.copy()  # Normalized
-        tempKernel = copy.deepcopy(self.kernel)
+        tempKernel = self.kernel.copy()
         test_pointX = np.array([tempX[i]])
         test_pointY = np.array(tempY[i])
         tempX = np.delete(tempX, i, 0)
         tempY = np.delete(tempY, i, 0)
-        self.set_kernel(copy.deepcopy(tempKernel))
+        self.set_kernel(tempKernel.copy())
         self.model = GPy.models.GPRegression(tempX, tempY, self.kernel)
         #             self.model['.*lengthscale'].constrain_bounded(0,5)
         self.model.optimize(messages=False)
@@ -499,12 +499,14 @@ class GP5D(GP2D):
 
         df = pd.DataFrame(hist_arr, columns=["hist"])
 
-        y, binEdges = np.histogram(hist_arr, bins=binning, density=True, normed=True)
-        bincenters = 0.5 * (binEdges[1:] + binEdges[:-1])
-        menStd = np.sqrt(y)
-        mx = y + np.sqrt(y)
-        mn = y - np.sqrt(y)
-        plt.fill_between(bincenters, mn, mx, alpha=0.2, zorder=3, color="limegreen")
+        # y, binEdges = np.histogram(hist_arr, bins=binning, density=True, normed=True)
+        # bincenters = 0.5 * (binEdges[1:] + binEdges[:-1])
+        # menStd = np.sqrt(y)
+        # mx = y + np.sqrt(y)
+        # mn = y - np.sqrt(y)
+        # plt.fill_between(bincenters, mn, mx, alpha=0.2, zorder=3, color="limegreen")
+        percentiles_lower = np.percentile(hist_arr, 16)
+        percentiles_upper = np.percentile(hist_arr, 84)
 
         if not self.empirical:
             x_gauss = np.linspace(-edge, edge, 100, endpoint=True)
@@ -515,19 +517,23 @@ class GP5D(GP2D):
                      facecolor='#2ab0ff', edgecolor='#169acf', zorder=1)
 
         df.plot.kde(ax=ax, label="LOOCV Distribution", alpha=1, zorder=2, color="green")
+        plt.axvline(x = percentiles_lower, color = "salmon" , label = r"1 $\sigma$")
+        plt.axvline(x = percentiles_upper, color = "salmon")
         plt.ylabel("Count Intensity (Log Flux Difference)")
         plt.xlabel(r"Deviation Error (Units Log Flux)")
 
-        if self.empirical:
-            ax.legend(["Density Distribution ", "Count", r"1 $\sigma$ Confidence"])
-            ax.set_title(r"Flux Ratio = $\frac{{Truth - Predictive}}{Truth}$")
-
-
-        else:
-            ax.legend(["Unit Gaussian", "Difference Distribution ", "Count"])
-            ax.set_title(r"Flux Ratio = $\frac{{Truth - Predictive}}{\sigma}$")
-
+        # if self.empirical:
+        #     ax.legend(["Density Distribution ", "Count", r"1 $\sigma$ Confidence"])
+        #     ax.set_title(r"Flux Ratio = $\frac{{Truth - Predictive}}{Truth}$")
+        #
+        #
+        # else:
+        #     ax.legend(["Unit Gaussian", "Difference Distribution ", "Count"])
+        #     ax.set_title(r"Flux Ratio = $\frac{{Truth - Predictive}}{\sigma}$")
+        ax.legend()
+        ax.set_title(r"Log Flux Ratio = $\frac{{Truth - Predictive}}{Truth}$")
         ax.set_ylim(bottom=-0.1)
+        ax.set_xlim(np.percentile(hist_arr, 2.5), np.percentile(hist_arr, 97.5))
 
     def plot_filters(self, mejdyn, mejwind, phi, iobs, colors="coolwarm_r"):
         t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
