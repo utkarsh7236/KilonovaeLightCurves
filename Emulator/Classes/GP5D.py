@@ -3,7 +3,7 @@ from Emulator.Classes.GP import GP
 from Emulator.Classes.GP2D import GP2D
 import numpy as np
 import matplotlib.pyplot as plt
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, parallel_backend
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import pandas as pd
@@ -419,47 +419,46 @@ class GP5D(GP2D):
         self.save_trained_data_helper(typ="upper")
         return None
 
+    def parallel_LOOCV(self, i):
+        tempX = self.X.copy()  # Normalized
+        tempY = self.Y.copy()  # Normalized
+        tempKernel = self.kernel.copy()
+        test_pointX = np.array([tempX[i]])
+        test_pointY = np.array(tempY[i])
+        tempX = np.delete(tempX, i, 0)
+        tempY = np.delete(tempY, i, 0)
+        self.set_kernel(tempKernel.copy())
+        self.model = GPy.models.GPRegression(tempX, tempY, self.kernel)
+        #             self.model['.*lengthscale'].constrain_bounded(0,5)
+        self.model.optimize(messages=False)
+
+        predY, varY = self.model.predict(test_pointX)
+
+        # Undo Normalization
+        if not np.isclose(self.median, 0):
+            varY = (varY + 1) * (self.median ** 2)
+            predY = (predY + 1) * self.median
+            test_pointY = (test_pointY + 1) * self.median
+
+        # Update final LOO List
+        looList = (test_pointY - predY) / np.sqrt(varY)
+        #             lengthscale = list(self.model.rbf.lengthscale)
+        lengthscale = list(self.model.mul.rbf.lengthscale)
+
+        trained_pcaComponents = predY.reshape(self.training_shape)
+        np.save(
+            f"data/pcaComponentsTrained/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi"
+            f"{int(self.unnormedX[i][2])}_iobs{int(self.unnormedX[i][3])}.npy",
+            trained_pcaComponents)
+
+        return looList, lengthscale
+
     def LOOCV_PCA(self, verbose=4):
         """ Leave one light curve out, and predict its flux and compare with what the true data says.
         """
+        with parallel_backend('threading', n_jobs=-2):
+            self.results = Parallel(verbose=verbose)(delayed(self.parallel_LOOCV)(i) for i in range(len(self.X)))
 
-        def parallel_LOOCV(self, i):
-            tempX = self.X.copy()  # Normalized
-            tempY = self.Y.copy()  # Normalized
-            tempKernel = self.kernel.copy()
-
-            test_pointX = np.array([tempX[i]])
-            test_pointY = np.array(tempY[i])
-            tempX = np.delete(tempX, i, 0)
-            tempY = np.delete(tempY, i, 0)
-            self.set_kernel(tempKernel.copy())
-            self.model = GPy.models.GPRegression(tempX, tempY, self.kernel)
-            #             self.model['.*lengthscale'].constrain_bounded(0,5)
-            self.model.optimize(messages=False)
-
-            predY, varY = self.model.predict(test_pointX)
-
-            # Undo Normalization
-            if not np.isclose(self.median, 0):
-                varY = (varY + 1) * (self.median ** 2)
-                predY = (predY + 1) * self.median
-                test_pointY = (test_pointY + 1) * self.median
-
-            # Update final LOO List
-            looList = (test_pointY - predY) / np.sqrt(varY)
-            #             lengthscale = list(self.model.rbf.lengthscale)
-            lengthscale = list(self.model.mul.rbf.lengthscale)
-
-            trained_pcaComponents = predY.reshape(self.training_shape)
-            np.save(
-                f"data/pcaComponentsTrained/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi"
-                f"{int(self.unnormedX[i][2])}_iobs{int(self.unnormedX[i][3])}.npy",
-                trained_pcaComponents)
-
-            return looList, lengthscale
-
-        self.results = Parallel(n_jobs=-2, verbose=verbose) \
-            (delayed(parallel_LOOCV)(self, i) for i in range(len(self.X)))
         self.list_lengthscale = np.array(list(map(itemgetter(1), self.results)), dtype=float)
         self.looListMultiple = np.array(list(map(itemgetter(0), self.results)), dtype=float).squeeze()
         self.loo_list_multiple = np.squeeze(self.looListMultiple)
