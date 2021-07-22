@@ -194,9 +194,10 @@ class GP5D(GP2D):
 
         for index, row, in self.reference.iterrows():
             for viewing_angle in self.iobs_range:
-                if (row.mejdyn == self.cross_validation[0]) and (row.mejwind == self.cross_validation[1]) and \
-                        (row.phi == self.cross_validation[2]) and (viewing_angle == self.cross_validation[3]):
-                    continue
+                if self.cross_validation is not None:
+                    if (row.mejdyn == self.cross_validation[0]) and (row.mejwind == self.cross_validation[1]) and \
+                            (row.phi == self.cross_validation[2]) and (viewing_angle == self.cross_validation[3]):
+                        continue
 
                 if skip_factor is not None:
                     skip_counter += 1
