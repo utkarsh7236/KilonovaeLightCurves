@@ -741,3 +741,39 @@ class GP5D(GP2D):
                     shutil.rmtree(file_path)
             except Exception as e:
                 print('Failed to delete %s. Reason: %s' % (file_path, e))
+
+    def plot_loocv_histogram_pca(self, edge=2.5, mu=0, sigma=1, binning=30):
+        fig, ax = plt.subplots(dpi=300)
+        utkarshGrid()
+        self.loo_list_multiple = []
+        for index, row, in self.reference.iterrows():
+            for viewing_angle in self.iobs_range:
+                try:
+                    truth = np.load(f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    pred = np.load(f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    self.loo_list_multiple.append((truth - pred)/truth)
+                except:
+                    continue
+
+        self.loo_list_multiple = np.array(self.loo_list_multiple, dtype = float)
+        hist_arr = self.loo_list_multiple.flatten()
+        hist_arr = hist_arr[np.isfinite(hist_arr)]
+        hist_arr = hist_arr[hist_arr < 3]
+        hist_arr = hist_arr[hist_arr > -3]
+        print(f"Inside 3x: {len(hist_arr)}, Total: {len(self.loo_list_multiple.flatten())}")
+
+        df = pd.DataFrame(hist_arr, columns=["hist"])
+
+        # if not self.empirical:
+        #     x_gauss = np.linspace(-edge, edge, 100, endpoint=True)
+        #     y_gauss = self.gaussian(x_gauss, mu, sigma)
+        #     plt.plot(x_gauss, y_gauss, label="Unit Gaussian", color="purple", zorder=3)
+
+        df.plot.hist(density=True, bins=binning, ax=ax, label="Count",
+                     facecolor='#2ab0ff', edgecolor='#169acf', zorder=1)
+        df.plot.kde(ax=ax, label="LOO Distribution", alpha=1, zorder=2)
+        plt.ylabel("Count Intensity")
+        ax.set_xlabel("Deviation Error (Units PCA)")
+        ax.set_title(r"Ratio = $\frac{Truth - Predictive}{Truth}$")
+        ax.legend(["Count", "KDE"])
+        ax.set_ylim(bottom=-0.1)
