@@ -13,6 +13,8 @@ import sncosmo
 import seaborn as sns
 from tqdm import tqdm
 import copy
+import os
+import shutil
 import pickle
 
 
@@ -334,14 +336,16 @@ class GP5D(GP2D):
                 try:
                     trainedComponents = np.load(
                         f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
-                    trainedComponentsError = np.load(
-                        f"data/pcaComponentsTrainedError/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+
+                    if typ is not None:
+                        trainedComponentsError = np.load(
+                            f"data/pcaComponentsTrainedError/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
 
                     if typ == "upper":
                         trainedComponents = trainedComponents + trainedComponentsError * sigma
                     if typ == "lower":
                         trainedComponents = trainedComponents - trainedComponentsError * sigma
-                    if typ == None:
+                    if typ is None:
                         trainedComponents = trainedComponents
 
                 except:
@@ -413,10 +417,12 @@ class GP5D(GP2D):
                     trained_pca_matrix[:, :, loo_index])
         return None
 
-    def save_trained_data(self):
+    def save_trained_data(self, errors=True):
+
         self.save_trained_data_helper(typ=None)
-        self.save_trained_data_helper(typ="lower")
-        self.save_trained_data_helper(typ="upper")
+        if errors:
+            self.save_trained_data_helper(typ="lower")
+            self.save_trained_data_helper(typ="upper")
         return None
 
     def parallel_LOOCV(self, i):
@@ -517,8 +523,8 @@ class GP5D(GP2D):
                      facecolor='#2ab0ff', edgecolor='#169acf', zorder=1)
 
         df.plot.kde(ax=ax, label="LOOCV Distribution", alpha=1, zorder=2, color="green")
-        plt.axvline(x = percentiles_lower, color = "salmon" , label = r"1 $\sigma$")
-        plt.axvline(x = percentiles_upper, color = "salmon")
+        plt.axvline(x=percentiles_lower, color="salmon", label=r"1 $\sigma$")
+        plt.axvline(x=percentiles_upper, color="salmon")
         plt.ylabel("Count Intensity (Log Flux Difference)")
         plt.xlabel(r"Deviation Error (Units Log Flux)")
 
@@ -724,3 +730,14 @@ class GP5D(GP2D):
             f"data/pcaComponentsTrainedError/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
             self.pred_sigma)
         return None
+
+    def delete_folder_files(self, folder):
+        for filename in os.listdir(folder):
+            file_path = os.path.join(folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
