@@ -578,12 +578,13 @@ class GP5D(GP2D):
         \ntime: {round(t[time_index], 2)} days\n\nLOG FLUX: {round(trained[time_index, wv_index], 5)}")
         return None
 
-    def overplot_time(self, mejdyn, mejwind, phi, iobs, wv_desired):
+    def overplot_time(self, mejdyn, mejwind, phi, iobs, wv_desired, errors = True):
         t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
         wv_index = (np.abs(self.wv_range - wv_desired)).argmin()  # Plot arbitary wavelength.
         trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
-        trainedUpper = np.load(f"data/pcaTrainedUpper/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
-        trainedLower = np.load(f"data/pcaTrainedLower/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        if errors is False:
+            trainedUpper = np.load(f"data/pcaTrainedUpper/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+            trainedLower = np.load(f"data/pcaTrainedLower/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
         untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
 
         plt.figure(dpi=300, figsize=(6, 3))
@@ -598,12 +599,14 @@ class GP5D(GP2D):
         utkarshGrid()
         return None
 
-    def overplot_wavelength(self, mejdyn, mejwind, phi, iobs, time_desired):
+    def overplot_wavelength(self, mejdyn, mejwind, phi, iobs, time_desired, errors = True):
         t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
         time_index = (np.abs(t - time_desired)).argmin()  # Plot arbitary wavelength.
         trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
-        trainedUpper = np.load(f"data/pcaTrainedUpper/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
-        trainedLower = np.load(f"data/pcaTrainedLower/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+
+        if errors is False:
+            trainedUpper = np.load(f"data/pcaTrainedUpper/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+            trainedLower = np.load(f"data/pcaTrainedLower/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
         untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
 
         plt.figure(dpi=300, figsize=(6, 3))
@@ -777,3 +780,13 @@ class GP5D(GP2D):
         ax.set_title(r"Ratio = $\frac{Truth - Predictive}{Truth}$")
         ax.legend(["Count", "KDE"])
         ax.set_ylim(bottom=-0.1)
+
+    def copytree(self, src, dst, symlinks=False, ignore=None):
+        for item in os.listdir(src):
+            s = os.path.join(src, item)
+            d = os.path.join(dst, item)
+            if os.path.isdir(s):
+                shutil.copytree(s, d, symlinks, ignore)
+            else:
+                shutil.copy2(s, d)
+
