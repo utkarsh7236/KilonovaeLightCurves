@@ -45,6 +45,8 @@ class GP5D(GP2D):
         self.isLog = True
         self.validationX = None
         self.cross_validation = None
+        self.split = 1
+        self.emulator = "start"
         return None
 
     def set_wv_range(self, wv_range):
@@ -171,6 +173,18 @@ class GP5D(GP2D):
                         continue
                 pca_matrix = np.load(
                     f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+
+                ind = int(len(pca_matrix) * self.split)
+
+                if self.emulator == "start":
+                    pca_matrix = pca_matrix[:ind]
+                    self._split = self.split
+                elif self.emulator == "end":
+                    pca_matrix = pca_matrix[ind:]
+                    self._split = 1 - self.split
+                else:
+                    print('[ERROR] Invalid emulator type.')
+
                 lstX.append((row.mejdyn, row.mejwind, row.phi, viewing_angle))
                 lstY.append(pca_matrix.flatten())
 
@@ -379,10 +393,10 @@ class GP5D(GP2D):
             N = 2155
 
         if self.skip_factor is not None:
-            trained_pca_matrix = trained2.reshape(self.Ntime[2], self.num_wv,
+            trained_pca_matrix = trained2.reshape(int(self.Ntime[2]*self._split), self.num_wv,
                                                   int(np.floor(N / (self.skip_factor + 1))))
         else:
-            trained_pca_matrix = trained2.reshape(self.Ntime[2], self.num_wv, N)
+            trained_pca_matrix = trained2.reshape(int(self.Ntime[2]*self._split), self.num_wv, N)
 
         counter = 0
 
@@ -471,6 +485,18 @@ class GP5D(GP2D):
 
         return None
 
+    def _untrained_helper(self, untrained):
+        ind = int(len(untrained) * self.split)
+        if self.emulator == "start":
+            untrained = untrained[:ind]
+            self._split = self.split
+        elif self.emulator == "end":
+            untrained = untrained[ind:]
+            self._split = 1 - self.split
+        else:
+            print('[ERROR] Invalid emulator type.')
+        return untrained
+
     def ComputeDifferenceFlux(self):
         """ Final pipeline of LOOCV, computes the difference between the training and predictive light curve data.
         """
@@ -481,6 +507,7 @@ class GP5D(GP2D):
                 try:
                     untrained = np.load(
                         f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    untrained = self._untrained_helper(untrained)
                     trained = np.load(
                         f"data/pcaTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
                 except:
@@ -541,9 +568,23 @@ class GP5D(GP2D):
         ax.set_ylim(bottom=-0.1)
         ax.set_xlim(np.percentile(hist_arr, 2.5), np.percentile(hist_arr, 97.5))
 
+    def _t_helper(self):
+        if self.emulator == "start":
+            start_time = 0
+            end_time = self.split * self.Ntime[1]
+        elif self.emulator == "end":
+            start_time = self.split * self.Ntime[1]
+            end_time = self.Ntime[2]
+        else:
+            print("[ERROR] Emulator type undefined. Try 'start' or 'end'")
+
+        t = np.arange(start_time, end_time, (end_time-start_time)/(self.Ntime[2] * self._split))
+        return t
+
     def plot_filters(self, mejdyn, mejwind, phi, iobs, colors="coolwarm_r"):
-        t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
+        t = self._t_helper()
         untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        untrained = self._untrained_helper(untrained)
         trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
         filters = ["sdss::u", "sdss::g", "sdss::r", "sdss::i", "sdss::z",
                    "swope2::y", "swope2::J", "swope2::H"]
@@ -568,7 +609,7 @@ class GP5D(GP2D):
         return None
 
     def get_flux(self, mejdyn, mejwind, phi, iobs, time_desired, wv_desired):
-        t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
+        t = self._t_helper()
         wv_index = (np.abs(self.wv_range - wv_desired)).argmin()  # Plot arbitary wavelength.
         time_index = (np.abs(t - time_desired)).argmin()  # Plot arbitary wavelength.
         trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
@@ -578,14 +619,15 @@ class GP5D(GP2D):
         \ntime: {round(t[time_index], 2)} days\n\nLOG FLUX: {round(trained[time_index, wv_index], 5)}")
         return None
 
-    def overplot_time(self, mejdyn, mejwind, phi, iobs, wv_desired, errors = True):
-        t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
+    def overplot_time(self, mejdyn, mejwind, phi, iobs, wv_desired, errors=True):
+        t = self._t_helper()
         wv_index = (np.abs(self.wv_range - wv_desired)).argmin()  # Plot arbitary wavelength.
         trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
         if errors is False:
             trainedUpper = np.load(f"data/pcaTrainedUpper/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
             trainedLower = np.load(f"data/pcaTrainedLower/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
         untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        untrained = self._untrained_helper(untrained)
 
         plt.figure(dpi=300, figsize=(6, 3))
         plt.title(f"Wavelength = {self.wv_range[wv_index]}nm")
@@ -599,8 +641,8 @@ class GP5D(GP2D):
         utkarshGrid()
         return None
 
-    def overplot_wavelength(self, mejdyn, mejwind, phi, iobs, time_desired, errors = True):
-        t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
+    def overplot_wavelength(self, mejdyn, mejwind, phi, iobs, time_desired, errors=True):
+        t = self._t_helper()
         time_index = (np.abs(t - time_desired)).argmin()  # Plot arbitary wavelength.
         trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
 
@@ -608,6 +650,7 @@ class GP5D(GP2D):
             trainedUpper = np.load(f"data/pcaTrainedUpper/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
             trainedLower = np.load(f"data/pcaTrainedLower/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
         untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
+        untrained = self._untrained_helper(untrained)
 
         plt.figure(dpi=300, figsize=(6, 3))
         plt.title(f"Time = {round(t[time_index], 3)} Days")
@@ -624,7 +667,7 @@ class GP5D(GP2D):
         return None
 
     def plot_emulator_errors(self):
-        t = np.arange(self.Ntime[0], self.Ntime[1], self.Ntime[1] / self.Ntime[2])
+        t = self._t_helper()
         diff = np.zeros(t.shape)
         for index, row, in tqdm(self.reference.iterrows(), total=196):
             for viewing_angle in self.iobs_range:
@@ -636,7 +679,7 @@ class GP5D(GP2D):
                 try:
                     untrained = np.load(f"data/pca/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
                     trained = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
-
+                    untrained = self._untrained_helper(untrained)
                 except:
                     continue
 
@@ -752,13 +795,15 @@ class GP5D(GP2D):
         for index, row, in self.reference.iterrows():
             for viewing_angle in self.iobs_range:
                 try:
-                    truth = np.load(f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
-                    pred = np.load(f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
-                    self.loo_list_multiple.append((truth - pred)/truth)
+                    truth = np.load(
+                        f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    pred = np.load(
+                        f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    self.loo_list_multiple.append((truth - pred) / truth)
                 except:
                     continue
 
-        self.loo_list_multiple = np.array(self.loo_list_multiple, dtype = float)
+        self.loo_list_multiple = np.array(self.loo_list_multiple, dtype=float)
         hist_arr = self.loo_list_multiple.flatten()
         hist_arr = hist_arr[np.isfinite(hist_arr)]
         hist_arr = hist_arr[hist_arr < 3]
@@ -789,4 +834,3 @@ class GP5D(GP2D):
                 shutil.copytree(s, d, symlinks, ignore)
             else:
                 shutil.copy2(s, d)
-
