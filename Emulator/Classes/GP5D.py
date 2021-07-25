@@ -684,14 +684,14 @@ class GP5D(GP2D):
                     continue
 
                 for i in range(len(t)):
-                    diff += abs(trained[:, i] - untrained[:, i])
+                    diff += abs(trained[:, i] - untrained[:, i])/untrained[:, i]
 
         plt.figure(dpi=300, figsize=(6, 3))
         plt.plot(t, diff, color="goldenrod")
         utkarshGrid()
         plt.title("Errors between Bulla model and the emulator")
         # plt.ylabel("Absolute Error (Cumulative Magnitude)")
-        plt.ylabel("Absolute Error (Cumulative Log Flux)")
+        plt.ylabel("Fractional Error (Cumulative Log Flux)")
         plt.xlabel("Time (days)")
         plt.show()
 
