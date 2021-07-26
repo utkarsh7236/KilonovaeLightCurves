@@ -574,7 +574,7 @@ class GP5D(GP2D):
             end_time = self.split * self.Ntime[1]
         elif self.emulator == "end":
             start_time = self.split * self.Ntime[1]
-            end_time = self.Ntime[2]
+            end_time = self.Ntime[1]
         else:
             print("[ERROR] Emulator type undefined. Try 'start' or 'end'")
 
@@ -684,8 +684,9 @@ class GP5D(GP2D):
                     continue
 
                 for i in range(len(t)):
-                    diff += abs(trained[:, i] - untrained[:, i])/untrained[:, i]
+                    diff += np.abs(trained[:, i] - untrained[:, i]/untrained[:, i])
 
+        diff = diff/self.num_wv
         plt.figure(dpi=300, figsize=(6, 3))
         plt.plot(t, diff, color="goldenrod")
         utkarshGrid()
