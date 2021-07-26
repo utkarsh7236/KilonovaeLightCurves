@@ -393,10 +393,10 @@ class GP5D(GP2D):
             N = 2155
 
         if self.skip_factor is not None:
-            trained_pca_matrix = trained2.reshape(int(self.Ntime[2]*self._split), self.num_wv,
+            trained_pca_matrix = trained2.reshape(int(self.Ntime[2] * self._split), self.num_wv,
                                                   int(np.floor(N / (self.skip_factor + 1))))
         else:
-            trained_pca_matrix = trained2.reshape(int(self.Ntime[2]*self._split), self.num_wv, N)
+            trained_pca_matrix = trained2.reshape(int(self.Ntime[2] * self._split), self.num_wv, N)
 
         counter = 0
 
@@ -578,7 +578,7 @@ class GP5D(GP2D):
         else:
             print("[ERROR] Emulator type undefined. Try 'start' or 'end'")
 
-        t = np.arange(start_time, end_time, (end_time-start_time)/(self.Ntime[2] * self._split))
+        t = np.arange(start_time, end_time, (end_time - start_time) / (self.Ntime[2] * self._split))
         return t
 
     def plot_filters(self, mejdyn, mejwind, phi, iobs, colors="coolwarm_r"):
@@ -597,8 +597,8 @@ class GP5D(GP2D):
             source2 = sncosmo.TimeSeriesSource(t, self.wv_range * 10, 10 ** untrained)
             m = source.bandmag(filters[i], "ab", t)
             m2 = source2.bandmag(filters[i], "ab", t)
-            plt.plot(t, m, label=f"{filters[i][-1]}", color=colors[i])
-            plt.plot(t, m2, linestyle="dotted", alpha=0.3, color=colors[i])
+            plt.plot(t, m, label=f"{filters[i][-1]}", color=colors[i], zorder=1)
+            plt.plot(t, m2, linestyle="dotted", alpha=0.5, color=colors[i], zorder=2)
 
         plt.legend()
         utkarshGrid()
@@ -669,6 +669,9 @@ class GP5D(GP2D):
     def plot_emulator_errors(self):
         t = self._t_helper()
         diff = np.zeros(t.shape)
+        counter = 0
+        eps = 1e-18
+
         for index, row, in tqdm(self.reference.iterrows(), total=196):
             for viewing_angle in self.iobs_range:
                 mejdyn = row.mejdyn
@@ -683,15 +686,16 @@ class GP5D(GP2D):
                 except:
                     continue
 
-                for i in range(len(t)):
-                    diff += np.abs(trained[:, i] - untrained[:, i]/untrained[:, i])
+                diff = diff + np.sum(np.abs((trained - untrained) / untrained), axis = 1)/self.num_wv
+                counter += 1
 
-        diff = diff/self.num_wv
+        diff = diff / counter  # Divide each wavelength and each training point and viewing angle
+
         plt.figure(dpi=300, figsize=(6, 3))
         plt.plot(t, diff, color="goldenrod")
         utkarshGrid()
         plt.title("Errors between Bulla model and the emulator")
-        # plt.ylabel("Absolute Error (Cumulative Magnitude)")
+        # plt.ylabel("Fractional Error (Cumulative Magnitude)")
         plt.ylabel("Fractional Error (Cumulative Log Flux)")
         plt.xlabel("Time (days)")
         plt.show()
