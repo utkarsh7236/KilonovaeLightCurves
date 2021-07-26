@@ -272,10 +272,11 @@ class GP5D(GP2D):
             self.Y = Y / med - 1
         return None
 
-    def model_predict(self, predX=None, include_like=True):
+    def model_predict(self, predX=None, include_like=True, messages = True):
         """ Predict new values of X and Y using optimized GP Emulator.
         """
-        print("[STATUS] Predicting X and Y with trained emulator.")
+        if messages:
+            print("[STATUS] Predicting X and Y with trained emulator.")
 
         if predX is None:
             predX = self.X
@@ -700,8 +701,9 @@ class GP5D(GP2D):
         plt.xlabel("Time (days)")
         plt.show()
 
-    def setXY_cross_validation(self, mejdyn, mejwind, phi, iobs):
-        print("[STATUS] Setting X, Y components for 5D Model.")
+    def setXY_cross_validation(self, mejdyn, mejwind, phi, iobs, messages = True):
+        if messages:
+            print("[STATUS] Setting X, Y components for 5D Model.")
         x = []
         yList = []
 
@@ -756,10 +758,11 @@ class GP5D(GP2D):
         assert len(self.Y) == 196 * 11 - 1
         return None
 
-    def model_predict_cross_validation(self, include_like=True):
+    def model_predict_cross_validation(self, include_like=True, messages = True):
         """ Predict new values of X and Y using optimized GP Emulator.
         """
-        print("[STATUS] Predicting X and Y with trained emulator.")
+        if messages:
+            print("[STATUS] Predicting X and Y with trained emulator.")
         predX = self.validationXNormed.reshape(1, len(self.validationXNormed))
 
         pred_arr, pred_var = self.model.predict(predX, include_likelihood=include_like)
