@@ -687,7 +687,8 @@ class GP5D(GP2D):
                 except:
                     continue
 
-                diff = diff + np.sum(np.abs((trained - untrained) / untrained), axis = 1)/self.num_wv
+                # diff = diff + np.sum(np.abs((trained - untrained) / untrained), axis = 1)/self.num_wv
+                diff = diff + 2.5 * np.sum(np.abs((trained - untrained)), axis=1) / self.num_wv
                 counter += 1
 
         diff = diff / counter  # Divide each wavelength and each training point and viewing angle
