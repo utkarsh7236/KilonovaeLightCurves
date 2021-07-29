@@ -420,15 +420,15 @@ class GP5D(GP2D):
         if self.cross_validation is not None:
             if typ == "upper":
                 np.save(
-                    f"data/pcaTrainedUpper/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
+                    f"data/pcaTrainedUpper/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{self.validationX[2]}_iobs{self.validationX[3]}.npy",
                     trained_pca_matrix[:, :, loo_index])
             if typ == "lower":
                 np.save(
-                    f"data/pcaTrainedLower/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
+                    f"data/pcaTrainedLower/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{self.validationX[2]}_iobs{self.validationX[3]}.npy",
                     trained_pca_matrix[:, :, loo_index])
             if typ is None:
                 np.save(
-                    f"data/pcaTrained/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
+                    f"data/pcaTrained/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{self.validationX[2]}_iobs{self.validationX[3]}.npy",
                     trained_pca_matrix[:, :, loo_index])
         return None
 
