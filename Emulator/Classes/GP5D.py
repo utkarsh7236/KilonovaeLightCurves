@@ -345,15 +345,9 @@ class GP5D(GP2D):
             ret = float
         return ret
 
-    def save_trained_data_helper(self, typ=None, theta=None, extra_item=None):
-        lstX = []
-        lstY = []
-        lstPCA = []
-        n_comp = self.n_comp
-        sigma = 1
-        loo_index = None
 
-        s = 0
+    def save_pca_initial_validation(self, typ=None):
+        lstPCA = []
         for index, row, in self.reference.iterrows():
             for viewing_angle in self.iobs_range:
                 try:
@@ -363,39 +357,63 @@ class GP5D(GP2D):
                     if typ is not None:
                         trainedComponentsError = np.load(
                             f"data/pcaComponentsTrainedError/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{float(row.phi)}_iobs{float(viewing_angle)}.npy")
-
-                    if typ == "upper":
-                        trainedComponents = trainedComponents + trainedComponentsError * sigma
-                    if typ == "lower":
-                        trainedComponents = trainedComponents - trainedComponentsError * sigma
                     if typ is None:
                         trainedComponents = trainedComponents
 
                 except:
                     trainedComponents = None
                     continue
-
-                try:
-                    untrainedComponents = np.load(
-                        f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
-                except:
-                    if self.cross_validation:
-                        loo_index = copy.deepcopy(s)
-
-                s += 1
-
                 lstPCA.append(trainedComponents)
+        np.save(f"data/transformComponents/lstPCA.npy", lstPCA)
+
+    def save_trained_data_helper(self, typ=None, theta=None, extra_item=None):
+        lstX = []
+        lstY = []
+        lstPCA = []
+        n_comp = self.n_comp
+        sigma = 1
+
+        s = 0
+        if theta is None:
+            for index, row, in self.reference.iterrows():
+                for viewing_angle in self.iobs_range:
+                    try:
+                        trainedComponents = np.load(
+                            f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{float(row.phi)}_iobs{float(viewing_angle)}.npy")
+
+                        if typ is not None:
+                            trainedComponentsError = np.load(
+                                f"data/pcaComponentsTrainedError/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{float(row.phi)}_iobs{float(viewing_angle)}.npy")
+
+                        if typ == "upper":
+                            trainedComponents = trainedComponents + trainedComponentsError * sigma
+                        if typ == "lower":
+                            trainedComponents = trainedComponents - trainedComponentsError * sigma
+                        if typ is None:
+                            trainedComponents = trainedComponents
+
+                    except:
+                        trainedComponents = None
+                        continue
+
+                    try:
+                        untrainedComponents = np.load(
+                            f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    except:
+                        if self.cross_validation:
+                            loo_index = copy.deepcopy(s)
+
+                    s += 1
+
+                    lstPCA.append(trainedComponents)
+        else:
+            loo_index = -1
+            lstPCA = list(np.load(f"data/transformComponents/lstPCA.npy"))
 
         if theta and self.cross_validation:
             trainedComponents = np.load(
                 f"data/pcaComponentsTrained/mejdyn{theta[0]}_mejwind{theta[1]}_phi{theta[2]}_iobs{theta[3]}.npy")
             lstPCA.append(trainedComponents)
-
-        if loo_index is None:
-            loo_index = -1
-
-        if theta and extra_item:
-            del lstPCA[-2]
 
         aPCA = np.array(lstPCA)
         aPCA = aPCA.T
