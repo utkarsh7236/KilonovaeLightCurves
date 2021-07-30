@@ -272,7 +272,7 @@ class GP5D(GP2D):
             self.Y = Y / med - 1
         return None
 
-    def model_predict(self, predX=None, include_like=True, messages = True):
+    def model_predict(self, predX=None, include_like=True, messages=True):
         """ Predict new values of X and Y using optimized GP Emulator.
         """
         if messages:
@@ -295,10 +295,10 @@ class GP5D(GP2D):
         for i in range(self.X.shape[0]):
             trained_pcaComponents = self.predY[i].reshape(self.training_shape)
             np.save(
-                f"data/pcaComponentsTrained/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi{int(self.unnormedX[i][2])}_iobs{int(self.unnormedX[i][3])}.npy",
+                f"data/pcaComponentsTrained/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi{self.unnormedX[i][2]}_iobs{self.unnormedX[i][3]}.npy",
                 trained_pcaComponents)
             np.save(
-                f"data/pcaComponentsTrainedError/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi{int(self.unnormedX[i][2])}_iobs{int(self.unnormedX[i][3])}.npy",
+                f"data/pcaComponentsTrainedError/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi{self.unnormedX[i][2]}_iobs{self.unnormedX[i][3]}.npy",
                 self.pred_sigma[i])
 
     def old_save_trained_data(self):
@@ -338,23 +338,31 @@ class GP5D(GP2D):
                 np.save(f"data/pcaTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy",
                         inverted_trained_data)
 
-    def save_trained_data_helper(self, typ=None):
+    def float_convert(self, float):
+        if float.is_integer():
+            ret = int(float)
+        else:
+            ret = float
+        return ret
+
+    def save_trained_data_helper(self, typ=None, theta=None, extra_item=None):
         lstX = []
         lstY = []
         lstPCA = []
         n_comp = self.n_comp
         sigma = 1
+        loo_index = None
 
         s = 0
         for index, row, in self.reference.iterrows():
             for viewing_angle in self.iobs_range:
                 try:
                     trainedComponents = np.load(
-                        f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                        f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{float(row.phi)}_iobs{float(viewing_angle)}.npy")
 
                     if typ is not None:
                         trainedComponentsError = np.load(
-                            f"data/pcaComponentsTrainedError/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                            f"data/pcaComponentsTrainedError/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{float(row.phi)}_iobs{float(viewing_angle)}.npy")
 
                     if typ == "upper":
                         trainedComponents = trainedComponents + trainedComponentsError * sigma
@@ -377,6 +385,17 @@ class GP5D(GP2D):
                 s += 1
 
                 lstPCA.append(trainedComponents)
+
+        if theta and self.cross_validation:
+            trainedComponents = np.load(
+                f"data/pcaComponentsTrained/mejdyn{theta[0]}_mejwind{theta[1]}_phi{theta[2]}_iobs{theta[3]}.npy")
+            lstPCA.append(trainedComponents)
+
+        if loo_index is None:
+            loo_index = -1
+
+        if theta and extra_item:
+            del lstPCA[-2]
 
         aPCA = np.array(lstPCA)
         aPCA = aPCA.T
@@ -432,9 +451,9 @@ class GP5D(GP2D):
                     trained_pca_matrix[:, :, loo_index])
         return None
 
-    def save_trained_data(self, errors=True):
+    def save_trained_data(self, errors=True, theta=None, extra_item=None):
 
-        self.save_trained_data_helper(typ=None)
+        self.save_trained_data_helper(typ=None, theta=theta, extra_item=extra_item)
         if errors:
             self.save_trained_data_helper(typ="lower")
             self.save_trained_data_helper(typ="upper")
@@ -702,7 +721,7 @@ class GP5D(GP2D):
         plt.xlabel("Time (days)")
         plt.show()
 
-    def setXY_cross_validation(self, mejdyn, mejwind, phi, iobs, messages = True):
+    def setXY_cross_validation(self, mejdyn, mejwind, phi, iobs, messages=True):
         if messages:
             print("[STATUS] Setting X, Y components for 5D Model.")
         x = []
@@ -759,7 +778,7 @@ class GP5D(GP2D):
         assert len(self.Y) == 196 * 11 - 1
         return None
 
-    def model_predict_cross_validation(self, include_like=True, messages = True):
+    def model_predict_cross_validation(self, include_like=True, messages=True):
         """ Predict new values of X and Y using optimized GP Emulator.
         """
         if messages:
@@ -779,10 +798,10 @@ class GP5D(GP2D):
 
         trained_pcaComponents = self.predY.reshape(self.training_shape)
         np.save(
-            f"data/pcaComponentsTrained/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
+            f"data/pcaComponentsTrained/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{self.validationX[2]}_iobs{self.validationX[3]}.npy",
             trained_pcaComponents)
         np.save(
-            f"data/pcaComponentsTrainedError/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{int(self.validationX[2])}_iobs{int(self.validationX[3])}.npy",
+            f"data/pcaComponentsTrainedError/mejdyn{self.validationX[0]}_mejwind{self.validationX[1]}_phi{self.validationX[2]}_iobs{self.validationX[3]}.npy",
             self.pred_sigma)
         return None
 
