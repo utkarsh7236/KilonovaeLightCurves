@@ -274,11 +274,12 @@ class Inference():
 
         ylim = plt.gca().get_ylim()
         plt.ylim(ylim)
-        plt.xlabel("number of samples, $N$")
-        plt.ylabel(r"$\tau$ estimates")
-        plt.legend(fontsize=14)
+        plt.xlabel("Number of Samples, $N$")
+        plt.ylabel(r"$\tau$ Estimates")
         plt.plot(N, N / 50.0, "--k", label=r"$\tau = N/50$")
-        plt.title(f"Autocorrelation")
+        plt.legend(fontsize=12)
+        plt.title(f"Autocorrelation Efficiency")
+        utkarshGrid()
         print(f"Walkers: {self.nwalkers}\nIterations: {self.niter}"
               f"\nEmulator Calls: {self.emulator_calls}\nTotal Runtime: {round((time.time() - self.t_init) / 60, 2)}min")
         pass
