@@ -279,6 +279,6 @@ class Inference():
         plt.legend(fontsize=14)
         plt.plot(N, N / 50.0, "--k", label=r"$\tau = N/50$")
         plt.title(f"Autocorrelation")
-        print(f"Walkers:{self.nwalkers}\nIterations:{self.niter}\n"
-              f"\nEmulator Calls:{self.emulator_calls}\nTotal Runtime:{round((time.time() - self.t_init) / 60, 2)}min")
+        print(f"Walkers: {self.nwalkers}\nIterations: {self.niter}"
+              f"\nEmulator Calls: {self.emulator_calls}\nTotal Runtime: {round((time.time() - self.t_init) / 60, 2)}min")
         pass
