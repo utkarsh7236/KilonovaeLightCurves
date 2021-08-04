@@ -80,6 +80,7 @@ class Inference():
         pass
 
     def train_fluxes(self, messages=False):
+        t0 = time.time()
         mejdyn, mejwind, phi, iobs = list(self.truth_arr)
         curr_wv = self.curr_wv
         set_skip_factor = self.set_skip_factor
@@ -103,6 +104,7 @@ class Inference():
         gp.delete_folder_files("data/pcaComponentsTrained")
         gp.delete_folder_files("data/pcaComponentsTrainedError")
         self.gp = gp
+        print(f"Training Time: {round(time.time() - t0)}s")
         return None
 
     def predict_fluxes(self, mejdyn, mejwind, phi, iobs, extra_item=None):
@@ -116,8 +118,6 @@ class Inference():
         x = t_matrix
         os.remove(f"data/pcaComponentsTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
         os.remove(f"data/pcaComponentsTrainedError/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
-        self.theta = gp.validationX
-        self.gp = gp
         return x, y
 
     def main(self, yerr_percentage = 20):
@@ -163,16 +163,17 @@ class Inference():
         self.t_init = time.time()
         p0 = [np.array(initial) + 1 * np.random.randn(ndim) for i in range(self.nwalkers)]
         p0 = np.array(p0, dtype=float)
-        print(p0.shape)
 
-        pool = self.pool
-        sampler = emcee.EnsembleSampler(self.nwalkers, ndim, logpost)
-        t0 = time.time()
-        print("Started Burn-In")
-        state = sampler.run_mcmc(p0, self.nburn, progress=False)
-        print(f"Burn-In Took: {round(time.time() - t0)}s")
-        sampler.reset()
-        state = sampler.run_mcmc(state, self.niter, progress=True)
+        with Pool() as pool:
+            pool = None
+            sampler = emcee.EnsembleSampler(self.nwalkers, ndim, logpost, pool = pool)
+            t0 = time.time()
+            print("Started Burn-In")
+            state = sampler.run_mcmc(p0, self.nburn, progress=False)
+            print(f"Burn-In Took: {round(time.time() - t0)}s")
+            sampler.reset()
+            state = sampler.run_mcmc(state, self.niter, progress=True)
+
         DIR = 'data/pcaTrained'
         self.emulator_calls = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])
         self.gp.delete_folder_files("data/pcaTrained")
