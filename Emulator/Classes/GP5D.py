@@ -47,6 +47,7 @@ class GP5D(GP2D):
         self.cross_validation = None
         self.split = 1
         self.emulator = "start"
+        self.MCMC = False
         return None
 
     def set_wv_range(self, wv_range):
@@ -378,6 +379,14 @@ class GP5D(GP2D):
             for index, row, in self.reference.iterrows():
                 for viewing_angle in self.iobs_range:
                     try:
+                        untrainedComponents = np.load(
+                            f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
+                    except:
+                        if self.cross_validation:
+                            print("Loo Index Set")
+                            loo_index = copy.deepcopy(s)
+
+                    try:
                         trainedComponents = np.load(
                             f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{float(row.phi)}_iobs{float(viewing_angle)}.npy")
 
@@ -396,13 +405,6 @@ class GP5D(GP2D):
                         trainedComponents = None
                         continue
 
-                    try:
-                        untrainedComponents = np.load(
-                            f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
-                    except:
-                        if self.cross_validation:
-                            loo_index = copy.deepcopy(s)
-
                     s += 1
 
                     lstPCA.append(trainedComponents)
@@ -410,7 +412,7 @@ class GP5D(GP2D):
             loo_index = -1
             lstPCA = list(np.load(f"data/transformComponents/lstPCA.npy"))
 
-        if theta and self.cross_validation:
+        if theta is not None and self.cross_validation:
             trainedComponents = np.load(
                 f"data/pcaComponentsTrained/mejdyn{theta[0]}_mejwind{theta[1]}_phi{theta[2]}_iobs{theta[3]}.npy")
             lstPCA.append(trainedComponents)
@@ -420,10 +422,14 @@ class GP5D(GP2D):
         reduced_data = np.load("data/transformComponents/pca_reduced_data.npy")
         scaler = pickle.load(open("data/transformComponents/scaler", 'rb'))
         trained1 = np.dot(reduced_data, aPCA)
+
         if self.cross_validation is None:
             trained2 = scaler.inverse_transform(trained1)
         else:
-            trained2 = scaler.inverse_transform(trained1[:, :-1])  # Need to pass the same size dataset.
+            if self.MCMC:
+                trained2 = scaler.inverse_transform(trained1[:, :])  # Need to pass the same size dataset.
+            else:
+                trained2 = scaler.inverse_transform(trained1[:, :-1])  # Need to pass the same size dataset.
 
         if self.cross_validation is None:
             N = 2156

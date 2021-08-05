@@ -66,6 +66,7 @@ class Inference():
         self.curr_wv = np.arange(100, 3600, 10)
         self.set_skip_factor = None
         self.gp = GP5D("Classes/reference.csv")
+        self.gp.MCMC = True
         self.gp.split = 1
         self.gp.emulator = "start"
         self.mejdyn_guess, self.mejwind_guess, self.phi_guess, self.iobs_guess = [0.1, 0.1, 20, 9]
@@ -126,6 +127,7 @@ class Inference():
                                    phi = self.truth_arr[2],
                                    iobs = self.truth_arr[3],
                                    extra_item = True)
+        print(y.shape)
         yerr = yerr_percentage/100 * y
         self.initial = [self.mejdyn_guess, self.mejwind_guess, self.phi_guess, self.iobs_guess]
 
@@ -169,8 +171,8 @@ class Inference():
             sampler = emcee.EnsembleSampler(self.nwalkers, ndim, logpost, pool = pool)
             t0 = time.time()
             print("Started Burn-In")
-            state = sampler.run_mcmc(p0, self.nburn, progress=False)
-            print(f"Burn-In Took: {round(time.time() - t0)}s")
+            state = sampler.run_mcmc(p0, self.nburn, progress=True)
+            print(f"Burn-In Took: {round((time.time() - t0)/60, 2)}mins")
             sampler.reset()
             state = sampler.run_mcmc(state, self.niter, progress=True)
 
@@ -190,6 +192,10 @@ class Inference():
                       truths=self.truth_arr,  # plot truth
                       color='darkviolet', truth_color='black',  # add some colors
                       **{'plot_datapoints': False, 'fill_contours': True})  # change some default options
+
+    def iobs_to_degrees(self, index = 3):
+        iobs = self.samples.reshape(-1, self.ndim)[index]
+        self.samples.reshape(-1, self.ndim)[3] = 90 - np.degrees(np.arccos(iobs / max(iobs)))
 
     def plot_chains(self):
         samples = self.samples
@@ -282,5 +288,5 @@ class Inference():
         plt.title(f"Autocorrelation Efficiency")
         utkarshGrid()
         print(f"Walkers: {self.nwalkers}\nIterations: {self.niter}"
-              f"\nEmulator Calls: {self.emulator_calls}\nTotal Runtime: {round((time.time() - self.t_init) / 60, 2)}min")
+              f"\nEmulator Calls: {self.emulator_calls}\nTotal Runtime: {round((time.time() - self.t_init) / 60, 2)}mins")
         pass
