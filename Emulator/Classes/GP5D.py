@@ -416,6 +416,7 @@ class GP5D(GP2D):
             trainedComponents = np.load(
                 f"data/pcaComponentsTrained/mejdyn{theta[0]}_mejwind{theta[1]}_phi{theta[2]}_iobs{theta[3]}.npy")
             lstPCA.append(trainedComponents)
+            del lstPCA[-2]
 
         aPCA = np.array(lstPCA)
         aPCA = aPCA.T
@@ -429,7 +430,7 @@ class GP5D(GP2D):
             if self.MCMC:
                 trained2 = scaler.inverse_transform(trained1[:, :])  # Need to pass the same size dataset.
             else:
-                trained2 = scaler.inverse_transform(trained1[:, :-1])  # Need to pass the same size dataset.
+                trained2 = scaler.inverse_transform(trained1[:, :])  # Need to pass the same size dataset.
 
         if self.cross_validation is None:
             N = 2156
