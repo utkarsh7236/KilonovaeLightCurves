@@ -133,11 +133,11 @@ class Inference():
 
         def prior(theta):
             mejdyn, mejwind, phi, iobs = theta
-            if mejdyn > 1 or mejdyn < 0.001:
+            if mejdyn > 0.02 or mejdyn < 0.001:
                 return -np.inf
-            elif mejwind > 1 or mejwind < 0.001:
+            elif mejwind > 0.13 or mejwind < 0.001:
                 return -np.inf
-            elif phi > 91 or phi < 0:
+            elif phi > 90 or phi < 0:
                 return -np.inf
             elif iobs > 11 or iobs < 0:
                 return -np.inf
@@ -152,9 +152,10 @@ class Inference():
             return logl
 
         def logpost(theta, x=x, y=y, yerr=yerr):
+            print(prior(theta))
             if not np.isfinite(prior(theta)):
                 return -np.inf
-            mejdyn, mejwind, phi, iobs = theta  # reassign parameters
+            theta  # reassign parameters
             logp = prior(theta)  # prior
             logl = loglike(theta, x=x, y=y, yerr=yerr)  # likelihood
             return logl + logp  # posterior
@@ -181,7 +182,23 @@ class Inference():
         self.gp.delete_folder_files("data/pcaTrained")
         self.state = state
         self.sampler = sampler
+        self.niter_total = self.niter
         return None
+
+    def retrain(self):
+        state = self.state
+        sampler = self.sampler
+
+        state = sampler.run_mcmc(state, self.niter, progress=True)
+
+
+        DIR = 'data/pcaTrained'
+        self.emulator_calls = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])
+        self.gp.delete_folder_files("data/pcaTrained")
+        self.state = state
+        self.sampler = sampler
+        self.niter_total += self.niter
+
 
     def plot_corner(self):
         samples = self.samples
@@ -287,6 +304,6 @@ class Inference():
         plt.legend(fontsize=12)
         plt.title(f"Autocorrelation Efficiency")
         utkarshGrid()
-        print(f"Walkers: {self.nwalkers}\nIterations: {self.niter}"
+        print(f"Walkers: {self.nwalkers}\nIterations: {self.niter_total}"
               f"\nEmulator Calls: {self.emulator_calls}\nTotal Runtime: {round((time.time() - self.t_init) / 60, 2)}mins")
         pass
