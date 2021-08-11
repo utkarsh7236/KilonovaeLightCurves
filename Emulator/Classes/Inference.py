@@ -108,18 +108,69 @@ class Inference():
         print(f"Training Time: {round(time.time() - t0)}s")
         return None
 
+    def normalize_mejdyn(self, x):
+        max = self.gp.reference.mejdyn.max()
+        min = self.gp.reference.mejdyn.min()
+        num = x - min
+        dem = max - min
+        normalized = num/dem
+        return normalized
+
+    def normalize_mejwind(self, x):
+        max = self.gp.reference.mejwind.max()
+        min = self.gp.reference.mejwind.min()
+        num = x - min
+        dem = max - min
+        normalized = num/dem
+        return normalized
+
+    def normalize_phi(self, x):
+        max = self.gp.reference.phi.max()
+        min = self.gp.reference.phi.min()
+        num = x - min
+        dem = max - min
+        normalized = num/dem
+        return normalized
+
+    def normalize_iobs(self, x):
+        max = 10
+        min = 0
+        num = x - min
+        dem = max - min
+        normalized = num/dem
+        return normalized
+
+    def normalization_helper(self, X):
+        normed = np.zeros(X.shape)
+        normed[0] = self.normalize_mejdyn(X[0])
+        normed[1] = self.normalize_mejwind(X[1])
+        normed[2] = self.normalize_iobs(X[2])
+        normed[3] = self.normalize_phi(X[3])
+        pass
+
     def predict_fluxes(self, mejdyn, mejwind, phi, iobs, extra_item=None):
         gp = self.gp
         gp.validationX = [mejdyn, mejwind, phi, iobs]
         gp.model_predict_cross_validation(include_like=True, messages=False)  # Save cross validation
         gp.save_trained_data(errors=False, theta=(mejdyn, mejwind, phi, iobs), extra_item=extra_item)
         y = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
-        t = gp._t_helper()
-        t_matrix = np.repeat(t, gp.num_wv).reshape(len(t), gp.num_wv)
-        x = t_matrix
         os.remove(f"data/pcaComponentsTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
         os.remove(f"data/pcaComponentsTrainedError/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
-        return x, y
+        filters = ["sdss::u", "sdss::g", "sdss::r", "sdss::i", "sdss::z",
+                   "swope2::y", "swope2::J", "swope2::H"]
+
+        m_complete = []
+        t = gp._t_helper()
+        for i in range(len(filters)):
+            source = sncosmo.TimeSeriesSource(t, gp.wv_range * 10, 10 ** y)
+            m = source.bandmag(filters[i], "ab", t)
+            m_complete.append(m)
+
+        y_mag = np.array(m_complete, dtype = float).T
+        t_matrix = np.repeat(t, len(filters)).reshape(len(t), len(filters))
+        x = t_matrix
+        self.filters = filters
+        return x, y_mag
 
     def main(self, yerr_percentage = 20):
         x, y = self.predict_fluxes(mejdyn = self.truth_arr[0],
@@ -152,7 +203,6 @@ class Inference():
             return logl
 
         def logpost(theta, x=x, y=y, yerr=yerr):
-            print(prior(theta))
             if not np.isfinite(prior(theta)):
                 return -np.inf
             theta  # reassign parameters
@@ -164,7 +214,7 @@ class Inference():
         ndim = len(initial)
         self.ndim = ndim
         self.t_init = time.time()
-        p0 = [np.array(initial) + 1 * np.random.randn(ndim) for i in range(self.nwalkers)]
+        p0 = [np.array(initial) + 1e-4 * np.random.randn(ndim) for i in range(self.nwalkers)]
         p0 = np.array(p0, dtype=float)
 
         with Pool() as pool:
