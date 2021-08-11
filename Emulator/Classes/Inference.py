@@ -116,6 +116,12 @@ class Inference():
         normalized = num/dem
         return normalized
 
+    def undo_normalize_mejdyn(self, x_prime):
+        max = self.gp.reference.mejdyn.max()
+        min = self.gp.reference.mejdyn.min()
+        unnormalized = min + x_prime*(max-min)
+        return unnormalized
+
     def normalize_mejwind(self, x):
         max = self.gp.reference.mejwind.max()
         min = self.gp.reference.mejwind.min()
@@ -123,6 +129,12 @@ class Inference():
         dem = max - min
         normalized = num/dem
         return normalized
+
+    def undo_normalize_mejwind(self, x_prime):
+        max = self.gp.reference.mejwind.max()
+        min = self.gp.reference.mejwind.min()
+        unnormalized = min + x_prime*(max-min)
+        return unnormalized
 
     def normalize_phi(self, x):
         max = self.gp.reference.phi.max()
@@ -132,6 +144,12 @@ class Inference():
         normalized = num/dem
         return normalized
 
+    def undo_normalize_phi(self, x_prime):
+        max = self.gp.reference.phi.max()
+        min = self.gp.reference.phi.min()
+        unnormalized = min + x_prime*(max-min)
+        return unnormalized
+
     def normalize_iobs(self, x):
         max = 10
         min = 0
@@ -140,15 +158,31 @@ class Inference():
         normalized = num/dem
         return normalized
 
+    def undo_normalize_iobs(self, x_prime):
+        max = 10
+        min = 0
+        unnormalized = min + x_prime*(max-min)
+        return unnormalized
+
     def normalization_helper(self, X):
         normed = np.zeros(X.shape)
         normed[0] = self.normalize_mejdyn(X[0])
         normed[1] = self.normalize_mejwind(X[1])
-        normed[2] = self.normalize_iobs(X[2])
-        normed[3] = self.normalize_phi(X[3])
-        pass
+        normed[2] = self.normalize_phi(X[2])
+        normed[3] = self.normalize_iobs(X[3])
+        return np.array(normed, dtype = float)
+
+    def undo_normalization_helper(self, X_prime):
+        unnormed = np.zeros(X_prime.shape)
+        unnormed[0] = self.undo_normalize_mejdyn(X_prime[0])
+        unnormed[1] = self.undo_normalize_mejwind(X_prime[1])
+        unnormed[2] = self.undo_normalize_phi(X_prime[2])
+        unnormed[3] = self.undo_normalize_iobs(X_prime[3])
+        return unnormed
 
     def predict_fluxes(self, mejdyn, mejwind, phi, iobs, extra_item=None):
+        theta = np.array([mejdyn, mejwind, phi, iobs])
+        mejdyn, mejwind, phi, iobs = list(self.undo_normalization_helper(theta))
         gp = self.gp
         gp.validationX = [mejdyn, mejwind, phi, iobs]
         gp.model_predict_cross_validation(include_like=True, messages=False)  # Save cross validation
@@ -173,44 +207,45 @@ class Inference():
         return x, y_mag
 
     def main(self, yerr_percentage = 20):
-        x, y = self.predict_fluxes(mejdyn = self.truth_arr[0],
-                                   mejwind = self.truth_arr[1],
-                                   phi = self.truth_arr[2],
-                                   iobs = self.truth_arr[3],
+        self.truth_arr_normed = self.normalization_helper(self.truth_arr)
+        x, y = self.predict_fluxes(mejdyn = self.truth_arr_normed[0],
+                                   mejwind = self.truth_arr_normed[1],
+                                   phi = self.truth_arr_normed[2],
+                                   iobs = self.truth_arr_normed[3],
                                    extra_item = True)
         print(y.shape)
         yerr = yerr_percentage/100 * y
-        self.initial = [self.mejdyn_guess, self.mejwind_guess, self.phi_guess, self.iobs_guess]
+        self.initial = np.array([self.mejdyn_guess, self.mejwind_guess, self.phi_guess, self.iobs_guess])
+        self.initial_normalized = self.normalization_helper(self.initial)
 
         def prior(theta):
             mejdyn, mejwind, phi, iobs = theta
-            if mejdyn > 0.02 or mejdyn < 0.001:
+            if mejdyn > 1.01 or mejdyn < -0.01:
                 return -np.inf
-            elif mejwind > 0.13 or mejwind < 0.001:
+            elif mejwind > 1.01 or mejwind < -0.01:
                 return -np.inf
-            elif phi > 90 or phi < 0:
+            elif phi > 1.01 or phi < -0.01:
                 return -np.inf
-            elif iobs > 11 or iobs < 0:
+            elif iobs > 1.01 or iobs < -0.01:
                 return -np.inf
             else:
                 return 0.0
 
         def loglike(theta, x, y, yerr):
-
             mejdyn, mejwind, phi, iobs = theta
             x, y_model = self.predict_fluxes(mejdyn, mejwind, phi, iobs)
             logl = - 0.5 * np.sum(((y - y_model) / yerr) ** 2)
             return logl
 
         def logpost(theta, x=x, y=y, yerr=yerr):
+            # print(theta, self.undo_normalization_helper(theta))
             if not np.isfinite(prior(theta)):
                 return -np.inf
-            theta  # reassign parameters
             logp = prior(theta)  # prior
             logl = loglike(theta, x=x, y=y, yerr=yerr)  # likelihood
             return logl + logp  # posterior
 
-        initial = self.initial
+        initial = self.initial_normalized
         ndim = len(initial)
         self.ndim = ndim
         self.t_init = time.time()

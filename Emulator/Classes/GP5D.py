@@ -118,48 +118,6 @@ class GP5D(GP2D):
 
         return None
 
-    def old_save_pca_components(self, skip_factor=None):
-        """ Converts light curve training data into PCA components to be trained on in the emulator.
-        """
-        print("[STATUS] Saving PCA Components...")
-        self.p1 = self.num_pca_components[0]
-        self.p2 = self.num_pca_components[1]
-        p1 = self.p1
-        p2 = self.p2
-
-        if skip_factor is not None:
-            skip_factor -= 1
-
-        self.skip_factor = skip_factor
-        skip_counter = 0
-
-        for index, row, in self.reference.iterrows():
-            for viewing_angle in self.iobs_range:
-
-                if skip_factor is not None:
-                    skip_counter += 1
-
-                    if skip_counter < skip_factor:
-                        continue
-
-                pca_matrix = np.load(
-                    f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
-                scaler = StandardScaler()
-                scaler.fit(pca_matrix)
-                scaled_data = scaler.transform(pca_matrix)
-                pca = PCA(n_components=p1)
-                pca.fit(scaled_data)
-                X = pca.transform(scaled_data)
-                pca2 = PCA(n_components=p2)
-                pca2.fit(pca.components_.T)
-                X2 = pca2.transform(pca.components_.T)
-                training = pca2.components_.flatten()
-                np.save(
-                    f"data/pcaComponents/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy",
-                    training)
-                skip_counter = -1
-        return None
-
     def save_pca_components(self, skip_factor=None):
         n_comp = self.n_comp
         lstX = []
