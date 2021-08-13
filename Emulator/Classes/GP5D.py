@@ -150,15 +150,18 @@ class GP5D(GP2D):
         aX = np.array(lstX)
         aY = np.array(lstY)
         aY = aY.T
-        scaler = StandardScaler()
-        scaler.fit(aY)
-        scaled_data = scaler.transform(aY)
+
+        median_scale = np.median(aY)
+        scaler = np.array([median_scale])
+        aY = aY/median_scale - 1
+        scaled_data = aY
         pca = PCA(n_components=n_comp, svd_solver='randomized')
         pca.fit(scaled_data)
         reduced_data = pca.transform(scaled_data)
         np.save(f"data/transformComponents/pca_reduced_data.npy", reduced_data)
+        np.save(f"data/transformComponents/scaler.npy", scaler)
 
-        pickle.dump(scaler, open("data/transformComponents/scaler", 'wb'))
+        # pickle.dump(scaler, open("data/transformComponents/scaler", 'wb'))
         counter = 0
 
         if skip_factor is not None:
@@ -229,6 +232,7 @@ class GP5D(GP2D):
             self.Y = Y
         else:
             self.Y = Y / med - 1
+            print("Normalized")
         return None
 
     def model_predict(self, predX=None, include_like=True, messages=True):
@@ -260,50 +264,12 @@ class GP5D(GP2D):
                 f"data/pcaComponentsTrainedError/mejdyn{self.unnormedX[i][0]}_mejwind{self.unnormedX[i][1]}_phi{self.unnormedX[i][2]}_iobs{self.unnormedX[i][3]}.npy",
                 self.pred_sigma[i])
 
-    def old_save_trained_data(self):
-        """ Save new trained data in same format as original trained data.
-        """
-        p1 = self.p1
-        p2 = self.p2
-        print('[STATUS] Saving newly trained data predictions.')
-        for index, row, in self.reference.iterrows():
-            for viewing_angle in self.iobs_range:
-                pca_matrix = np.load(
-                    f"data/pca/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
-
-                try:
-                    trained_pcaComponents = np.load(
-                        f"data/pcaComponentsTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy")
-                except:
-                    trained_pcaComponents = None
-                    continue
-
-                scaler = StandardScaler()
-                scaler.fit(pca_matrix)
-                scaled_data = scaler.transform(pca_matrix)
-                pca = PCA(n_components=p1)
-                pca.fit(scaled_data)
-                X = pca.transform(scaled_data)
-                pca2 = PCA(n_components=p2)
-                pca2.fit(pca.components_.T)
-                X2 = pca2.transform(pca.components_.T)
-                pca2.components_ = trained_pcaComponents.reshape(self.p1, self.p2)
-                trained2 = pca2.inverse_transform(pca2.transform(pca.components_.T)).T
-                pca.components_ = trained2
-                trained3 = pca.inverse_transform(pca.transform(scaled_data))
-                inverted_trained_data = scaler.inverse_transform(trained3)
-
-                assert inverted_trained_data.shape == pca_matrix.shape
-                np.save(f"data/pcaTrained/mejdyn{row.mejdyn}_mejwind{row.mejwind}_phi{row.phi}_iobs{viewing_angle}.npy",
-                        inverted_trained_data)
-
     def float_convert(self, float):
         if float.is_integer():
             ret = int(float)
         else:
             ret = float
         return ret
-
 
     def save_pca_initial_validation(self, typ=None):
         lstPCA = []
@@ -325,7 +291,7 @@ class GP5D(GP2D):
                 lstPCA.append(trainedComponents)
         np.save(f"data/transformComponents/lstPCA.npy", lstPCA)
 
-    def save_trained_data_helper(self, typ=None, theta=None, extra_item=None):
+    def save_trained_data_helper_old(self, typ=None, theta=None, extra_item=None):
         lstX = []
         lstY = []
         lstPCA = []
@@ -380,6 +346,8 @@ class GP5D(GP2D):
         aPCA = aPCA.T
         reduced_data = np.load("data/transformComponents/pca_reduced_data.npy")
         scaler = pickle.load(open("data/transformComponents/scaler", 'rb'))
+        print(reduced_data.shape)
+        print(aPCA.shape)
         trained1 = np.dot(reduced_data, aPCA)
 
         if self.cross_validation is None:
@@ -434,7 +402,52 @@ class GP5D(GP2D):
                     trained_pca_matrix[:, :, loo_index])
         return None
 
-    def save_trained_data(self, errors=True, theta=None, extra_item=None):
+    def save_trained_data_helper(self, typ=None, theta=None, extra_item=None):
+        lstX = []
+        lstY = []
+        lstPCA = []
+        n_comp = self.n_comp
+        sigma = 1
+
+        s = 0
+        if theta is None:
+            trainedComponents = np.load(f"data/pcaComponentsTrained/mejdyn{self.cross_validation[0]}"
+                                        f"_mejwind{self.cross_validation[1]}"
+                                        f"_phi{int(self.cross_validation[2])}"
+                                        f"_iobs{int(self.cross_validation[3])}.npy")
+            lstPCA.append(trainedComponents)
+            curr_items = list(self.cross_validation)
+        else:
+            trainedComponents = np.load(
+                f"data/pcaComponentsTrained/mejdyn{theta[0]}_mejwind{theta[1]}_phi{theta[2]}_iobs{theta[3]}.npy")
+            curr_items = list(theta)
+
+        aPCA = trainedComponents
+        aPCA = aPCA.T
+        reduced_data = np.load("data/transformComponents/pca_reduced_data.npy")
+        trained1 = np.dot(reduced_data, aPCA)
+        trained2 = trained1
+
+        N = 1
+        if self.skip_factor is not None:
+            trained_pca_matrix = trained2.reshape(int(self.Ntime[2] * self._split), self.num_wv,
+                                                  int(np.floor(N / (self.skip_factor + 1))))
+        else:
+            trained_pca_matrix = trained2.reshape(int(self.Ntime[2] * self._split), self.num_wv, N)
+
+        trained_pca_matrix = np.squeeze(trained_pca_matrix)
+
+        scaler = np.load("data/transformComponents/scaler.npy")
+        median_scale = scaler[0]
+        trained_pca_matrix = (trained_pca_matrix + 1) * median_scale
+
+        np.save(f"data/pcaTrained/mejdyn{curr_items[0]}"
+                f"_mejwind{curr_items[1]}"
+                f"_phi{(curr_items[2])}"
+                f"_iobs{(curr_items[3])}.npy", trained_pca_matrix)
+        return None
+
+    def save_trained_data(self, errors=False, theta=None, extra_item=None):
 
         self.save_trained_data_helper(typ=None, theta=theta, extra_item=extra_item)
         if errors:
@@ -766,6 +779,7 @@ class GP5D(GP2D):
         """
         if messages:
             print("[STATUS] Predicting X and Y with trained emulator.")
+
         predX = self.validationXNormed.reshape(1, len(self.validationXNormed))
 
         pred_arr, pred_var = self.model.predict(predX, include_likelihood=include_like)
