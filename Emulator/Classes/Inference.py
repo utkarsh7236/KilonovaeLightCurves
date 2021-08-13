@@ -113,13 +113,13 @@ class Inference():
         min = self.gp.reference.mejdyn.min()
         num = x - min
         dem = max - min
-        normalized = num/dem
+        normalized = num / dem
         return normalized
 
     def undo_normalize_mejdyn(self, x_prime):
         max = self.gp.reference.mejdyn.max()
         min = self.gp.reference.mejdyn.min()
-        unnormalized = min + x_prime*(max-min)
+        unnormalized = min + x_prime * (max - min)
         return unnormalized
 
     def normalize_mejwind(self, x):
@@ -127,13 +127,13 @@ class Inference():
         min = self.gp.reference.mejwind.min()
         num = x - min
         dem = max - min
-        normalized = num/dem
+        normalized = num / dem
         return normalized
 
     def undo_normalize_mejwind(self, x_prime):
         max = self.gp.reference.mejwind.max()
         min = self.gp.reference.mejwind.min()
-        unnormalized = min + x_prime*(max-min)
+        unnormalized = min + x_prime * (max - min)
         return unnormalized
 
     def normalize_phi(self, x):
@@ -141,13 +141,13 @@ class Inference():
         min = self.gp.reference.phi.min()
         num = x - min
         dem = max - min
-        normalized = num/dem
+        normalized = num / dem
         return normalized
 
     def undo_normalize_phi(self, x_prime):
         max = self.gp.reference.phi.max()
         min = self.gp.reference.phi.min()
-        unnormalized = min + x_prime*(max-min)
+        unnormalized = min + x_prime * (max - min)
         return unnormalized
 
     def normalize_iobs(self, x):
@@ -155,13 +155,13 @@ class Inference():
         min = 0
         num = x - min
         dem = max - min
-        normalized = num/dem
+        normalized = num / dem
         return normalized
 
     def undo_normalize_iobs(self, x_prime):
-        max = 10
+        max = 11
         min = 0
-        unnormalized = min + x_prime*(max-min)
+        unnormalized = min + x_prime * (max - min)
         return unnormalized
 
     def normalization_helper(self, X):
@@ -170,7 +170,7 @@ class Inference():
         normed[1] = self.normalize_mejwind(X[1])
         normed[2] = self.normalize_phi(X[2])
         normed[3] = self.normalize_iobs(X[3])
-        return np.array(normed, dtype = float)
+        return np.array(normed, dtype=float)
 
     def undo_normalization_helper(self, X_prime):
         unnormed = np.zeros(X_prime.shape)
@@ -180,11 +180,20 @@ class Inference():
         unnormed[3] = self.undo_normalize_iobs(X_prime[3])
         return unnormed
 
+    def undo_normalization_samples(self, samples):
+        a = np.copy(samples)
+        a[:, :, 0] = self.undo_normalize_mejdyn(a[:, :, 0])
+        a[:, :, 1] = self.undo_normalize_mejwind(a[:, :, 1])
+        a[:, :, 2] = self.undo_normalize_phi(a[:, :, 2])
+        a[:, :, 3] = self.undo_normalize_iobs(a[:, :, 3])
+        return a
+
     def predict_fluxes(self, mejdyn, mejwind, phi, iobs, extra_item=None):
         theta = np.array([mejdyn, mejwind, phi, iobs])
         mejdyn, mejwind, phi, iobs = list(self.undo_normalization_helper(theta))
         gp = self.gp
         gp.validationX = [mejdyn, mejwind, phi, iobs]
+        gp.validationXNormed = self.normalization_helper(np.array(gp.validationX))
         gp.model_predict_cross_validation(include_like=True, messages=False)  # Save cross validation
         gp.save_trained_data(errors=False, theta=(mejdyn, mejwind, phi, iobs), extra_item=extra_item)
         y = np.load(f"data/pcaTrained/mejdyn{mejdyn}_mejwind{mejwind}_phi{phi}_iobs{iobs}.npy")
@@ -200,21 +209,21 @@ class Inference():
             m = source.bandmag(filters[i], "ab", t)
             m_complete.append(m)
 
-        y_mag = np.array(m_complete, dtype = float).T
+        y_mag = np.array(m_complete, dtype=float).T
         t_matrix = np.repeat(t, len(filters)).reshape(len(t), len(filters))
         x = t_matrix
         self.filters = filters
         return x, y_mag
 
-    def main(self, yerr_percentage = 20):
+    def main(self, yerr_percentage=20):
         self.truth_arr_normed = self.normalization_helper(self.truth_arr)
-        x, y = self.predict_fluxes(mejdyn = self.truth_arr_normed[0],
-                                   mejwind = self.truth_arr_normed[1],
-                                   phi = self.truth_arr_normed[2],
-                                   iobs = self.truth_arr_normed[3],
-                                   extra_item = True)
+        x, y = self.predict_fluxes(mejdyn=self.truth_arr_normed[0],
+                                   mejwind=self.truth_arr_normed[1],
+                                   phi=self.truth_arr_normed[2],
+                                   iobs=self.truth_arr_normed[3],
+                                   extra_item=True)
         print(y.shape)
-        yerr = yerr_percentage/100 * y
+        yerr = yerr_percentage / 100 * y
         self.initial = np.array([self.mejdyn_guess, self.mejwind_guess, self.phi_guess, self.iobs_guess])
         self.initial_normalized = self.normalization_helper(self.initial)
 
@@ -254,11 +263,11 @@ class Inference():
 
         with Pool() as pool:
             pool = None
-            sampler = emcee.EnsembleSampler(self.nwalkers, ndim, logpost, pool = pool)
+            sampler = emcee.EnsembleSampler(self.nwalkers, ndim, logpost, pool=pool)
             t0 = time.time()
             print("Started Burn-In")
             state = sampler.run_mcmc(p0, self.nburn, progress=True)
-            print(f"Burn-In Took: {round((time.time() - t0)/60, 2)}mins")
+            print(f"Burn-In Took: {round((time.time() - t0) / 60, 2)}mins")
             sampler.reset()
             state = sampler.run_mcmc(state, self.niter, progress=True)
 
@@ -271,22 +280,19 @@ class Inference():
         return None
 
     def retrain(self):
-        state = self.state
-        sampler = self.sampler
 
-        state = sampler.run_mcmc(state, self.niter, progress=True)
-
+        self.state = self.sampler.run_mcmc(self.state, self.niter, progress=True)
 
         DIR = 'data/pcaTrained'
         self.emulator_calls = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])
         self.gp.delete_folder_files("data/pcaTrained")
-        self.state = state
-        self.sampler = sampler
         self.niter_total += self.niter
 
-
     def plot_corner(self):
-        samples = self.samples
+        samples = np.copy(self.samples)
+        samples = self.undo_normalization_samples(samples)
+        # iobs_list = samples.reshape(-1, self.ndim)[3]
+        # samples.reshape(-1, self.ndim)[3] = 90 - np.degrees(np.arccos(iobs_list / 10))
         corner.corner(samples.reshape(-1, self.ndim),  # collect samples into N x 3 array
                       bins=10,  # bins for histogram
                       show_titles=True, quantiles=[0.16, 0.84],  # show median and uncertainties
@@ -295,9 +301,10 @@ class Inference():
                       color='darkviolet', truth_color='black',  # add some colors
                       **{'plot_datapoints': False, 'fill_contours': True})  # change some default options
 
-    def iobs_to_degrees(self, index = 3):
-        iobs = self.samples.reshape(-1, self.ndim)[index]
-        self.samples.reshape(-1, self.ndim)[3] = 90 - np.degrees(np.arccos(iobs / max(iobs)))
+    # def iobs_to_degrees(self, samples, index=3):
+    #     iobs = samples.reshape(-1, self.ndim)[index]
+    #     samples.reshape(-1, self.ndim)[index] = 90 - np.degrees(np.arccos(iobs / 10))
+    #     return samples
 
     def plot_chains(self):
         samples = self.samples
