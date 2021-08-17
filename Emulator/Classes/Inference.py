@@ -151,7 +151,7 @@ class Inference():
         return unnormalized
 
     def normalize_iobs(self, x):
-        max = 10
+        max = 11
         min = 0
         num = x - min
         dem = max - min
@@ -229,13 +229,13 @@ class Inference():
 
         def prior(theta):
             mejdyn, mejwind, phi, iobs = theta
-            if mejdyn > 1.01 or mejdyn < -0.01:
+            if mejdyn > 1.0 or mejdyn < 0:
                 return -np.inf
-            elif mejwind > 1.01 or mejwind < -0.01:
+            elif mejwind > 1.0 or mejwind < 0:
                 return -np.inf
-            elif phi > 1.01 or phi < -0.01:
+            elif phi > 1.0 or phi < 0:
                 return -np.inf
-            elif iobs > 1.01 or iobs < -0.01:
+            elif iobs > 1.0 or iobs < 0:
                 return -np.inf
             else:
                 return 0.0
@@ -291,20 +291,20 @@ class Inference():
     def plot_corner(self):
         samples = np.copy(self.samples)
         samples = self.undo_normalization_samples(samples)
-        # iobs_list = samples.reshape(-1, self.ndim)[3]
-        # samples.reshape(-1, self.ndim)[3] = 90 - np.degrees(np.arccos(iobs_list / 10))
-        corner.corner(samples.reshape(-1, self.ndim),  # collect samples into N x 3 array
-                      bins=10,  # bins for histogram
+
+        corner_samples = samples.reshape(-1, self.ndim)
+        truth = np.copy(self.truth_arr)
+
+        corner_samples[:, 3] = 90 - np.degrees(np.arccos(corner_samples[:, 3] / 11))
+        truth[3] = 90 - np.degrees(np.arccos(truth[3] / 11))
+        corner.corner(corner_samples,  # collect samples into N x 3 array
+                      bins=30,  # bins for histogram
                       show_titles=True, quantiles=[0.16, 0.84],  # show median and uncertainties
                       labels=self.labs,
-                      truths=self.truth_arr,  # plot truth
+                      truths=truth,  # plot truth
                       color='darkviolet', truth_color='black',  # add some colors
                       **{'plot_datapoints': False, 'fill_contours': True})  # change some default options
-
-    # def iobs_to_degrees(self, samples, index=3):
-    #     iobs = samples.reshape(-1, self.ndim)[index]
-    #     samples.reshape(-1, self.ndim)[index] = 90 - np.degrees(np.arccos(iobs / 10))
-    #     return samples
+        plt.show()
 
     def plot_chains(self):
         samples = self.samples
