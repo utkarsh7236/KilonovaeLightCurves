@@ -93,10 +93,10 @@ class Inference():
         gp.setXY_cross_validation(mejdyn, mejwind, phi, iobs, messages=False)
         fitting_kernel = GPy.kern.RBF(input_dim=4, variance=1, lengthscale=1, ARD=True)
         decay_kernel = GPy.kern.Linear(input_dim=4, ARD=True)
-        gp.kernel = fitting_kernel * decay_kernel
+        gp.kernel = fitting_kernel #* decay_kernel
         gp.model = GPy.models.GPRegression(gp.X, gp.Y, gp.kernel)
         gp.model.Gaussian_noise.variance.constrain_bounded(0, 1.)
-        gp.model.mul.rbf.lengthscale.constrain_bounded(0.01, 5.)
+        gp.model.rbf.lengthscale.constrain_bounded(0.01, 5.)
         if messages:
             print(gp.model)
         if messages:
