@@ -1,0 +1,19 @@
+TY  - JOUR
+AU  - Andrieu, Christophe
+AU  - de Freitas, Nando
+AU  - Doucet, Arnaud
+AU  - Jordan, Michael I.
+PY  - 2003
+DA  - 2003/01/01
+TI  - An Introduction to MCMC for Machine Learning
+JO  - Machine Learning
+SP  - 5
+EP  - 43
+VL  - 50
+IS  - 1
+AB  - This purpose of this introductory paper is threefold. First, it introduces the Monte Carlo method with emphasis on probabilistic machine learning. Second, it reviews the main building blocks of modern Markov chain Monte Carlo simulation, thereby providing and introduction to the remaining papers of this special issue. Lastly, it discusses new interesting research horizons.
+SN  - 1573-0565
+UR  - https://doi.org/10.1023/A:1020281327116
+DO  - 10.1023/A:1020281327116
+ID  - Andrieu2003
+ER  - 
