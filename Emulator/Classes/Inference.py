@@ -95,6 +95,8 @@ class Inference():
         decay_kernel = GPy.kern.Linear(input_dim=4, ARD=True)
         gp.kernel = fitting_kernel * decay_kernel
         gp.model = GPy.models.GPRegression(gp.X, gp.Y, gp.kernel)
+        gp.model.Gaussian_noise.variance.constrain_bounded(0, 1.)
+        gp.model.mul.rbf.lengthscale.constrain_bounded(0.01, 5.)
         if messages:
             print(gp.model)
         if messages:
